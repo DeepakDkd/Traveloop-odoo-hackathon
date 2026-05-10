@@ -7,7 +7,7 @@ import { screenVariants, containerVariants, itemVariants, cardVariants } from '@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ArrowLeft, Plus, Trash2, X } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from 'react-hot-toast'
 
 type Note = {
     id: string

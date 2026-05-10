@@ -340,7 +340,7 @@ function TripCard({
           ) : null}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/trip-itinerary">
+            <Link href="/itinerary-view">
               <Button size="sm" variant="primary" className="min-w-[92px]">
                 <Eye size={14} />
                 View

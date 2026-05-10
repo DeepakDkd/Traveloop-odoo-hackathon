@@ -390,12 +390,12 @@ function ActivityCard({
   return (
     <Card hover className="overflow-hidden p-0">
       <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="relative aspect-[16/10] overflow-hidden lg:h-auto lg:w-72 lg:shrink-0">
+        <div className="relative aspect-[16/10] overflow-hidden lg:h-auto lg:w-72 lg:shrink-0 rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activity.image}
             alt={activity.name}
-            className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+            className="h-full w-full  object-cover transition-transform duration-300 hover:scale-[1.03]"
           />
         </div>
 

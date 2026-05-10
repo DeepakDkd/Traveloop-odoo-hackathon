@@ -1,5 +1,3 @@
-import axios from "axios";
-
 const GEOAPIFY_KEY = "458a639d9c464ddea7aa44dc003d3ccd";
 
 type CategoryMeta = {
@@ -62,18 +60,29 @@ function wikiUrl(wikiTag: string): string {
 }
 
 async function geocodePlace(place: string): Promise<GeoResult | null> {
-  const response = await axios.get(
-    "https://api.geoapify.com/v1/geocode/search",
+  const params = new URLSearchParams({
+    text: place,
+    limit: "1",
+    apiKey: GEOAPIFY_KEY,
+  });
+
+  const response = await fetch(
+    `https://api.geoapify.com/v1/geocode/search?${params.toString()}`,
     {
-      params: {
-        text: place,
-        limit: 1,
-        apiKey: GEOAPIFY_KEY,
+      method: "GET",
+      headers: {
+        Accept: "application/json",
       },
-    }
+      cache: "no-store",
+    },
   );
 
-  const features = response.data.features;
+  if (!response.ok) {
+    throw new Error("Failed to geocode place");
+  }
+
+  const data = await response.json();
+  const features = data.features ?? [];
 
   if (!features.length) return null;
 
@@ -111,21 +120,33 @@ type GeoapifyFeature = {
 };
 
 async function searchPlaces(lat: number, lon: number): Promise<PlaceResult[]> {
-  const response = await axios.get(
-    "https://api.geoapify.com/v2/places",
+  const params = new URLSearchParams({
+    categories:
+      "tourism.sights,tourism.attraction,entertainment.museum,leisure.park,natural,heritage",
+    filter: `circle:${lon},${lat},15000`,
+    limit: "60",
+    apiKey: GEOAPIFY_KEY,
+    lang: "en",
+  });
+
+  const response = await fetch(
+    `https://api.geoapify.com/v2/places?${params.toString()}`,
     {
-      params: {
-        categories:
-          "tourism.sights,tourism.attraction,entertainment.museum,leisure.park,natural,heritage",
-        filter: `circle:${lon},${lat},15000`,
-        limit: 60,
-        apiKey: GEOAPIFY_KEY,
-        lang: "en",
+      method: "GET",
+      headers: {
+        Accept: "application/json",
       },
-    }
+      cache: "no-store",
+    },
   );
 
-  return response.data.features.map((feat: GeoapifyFeature) => {
+  if (!response.ok) {
+    throw new Error("Failed to search places");
+  }
+
+  const data = await response.json();
+
+  return (data.features ?? []).map((feat: GeoapifyFeature) => {
     const props = feat.properties || {};
 
     const raw = props.datasource?.raw || {};

@@ -23,10 +23,61 @@ type Hotel = {
   lon: number;
 };
 
+type HotelCategory = "hotel" | "guest_house" | "hostel";
+
 type GeoResult = {
   lat: number;
   lon: number;
   name: string;
+};
+
+type GeocodeFeature = {
+  geometry: {
+    coordinates: [number, number];
+  };
+  properties: {
+    city?: string;
+    name?: string;
+  };
+};
+
+type GeocodeResponse = {
+  features?: GeocodeFeature[];
+};
+
+type OpenMeteoResult = {
+  latitude: number;
+  longitude: number;
+  name: string;
+  country: string;
+};
+
+type OpenMeteoResponse = {
+  results?: OpenMeteoResult[];
+};
+
+type HotelFeature = {
+  geometry: {
+    coordinates: [number, number];
+  };
+  properties: {
+    name?: string;
+    formatted?: string;
+    categories?: string[];
+    datasource?: {
+      raw?: {
+        stars?: string;
+        price_range?: string;
+        website?: string;
+        phone?: string;
+        "contact:phone"?: string;
+      };
+    };
+  };
+};
+
+type HotelSearchResponse = {
+  features?: HotelFeature[];
 };
 
 export default function Home() {
@@ -48,10 +99,12 @@ export default function Home() {
         )}&limit=1&type=city&apiKey=${GEOAPIFY_KEY}`
       );
 
-      let data = await response.json();
+      const geocodeData: GeocodeResponse = await response.json();
 
-      if (data.features?.length > 0) {
-        const feature = data.features[0];
+      const geocodeFeatures = geocodeData.features ?? [];
+
+      if (geocodeFeatures.length > 0) {
+        const feature = geocodeFeatures[0];
 
         const [lon, lat] = feature.geometry.coordinates;
 
@@ -72,10 +125,12 @@ export default function Home() {
         )}&count=1&language=en&format=json`
       );
 
-      data = await response.json();
+      const openMeteoData: OpenMeteoResponse = await response.json();
 
-      if (data.results?.length > 0) {
-        const result = data.results[0];
+      const openMeteoResults = openMeteoData.results ?? [];
+
+      if (openMeteoResults.length > 0) {
+        const result = openMeteoResults[0];
 
         return {
           lat: result.latitude,
@@ -103,13 +158,13 @@ export default function Home() {
         `https://api.geoapify.com/v2/places?categories=accommodation.hotel,accommodation.guest_house,accommodation.hostel&filter=circle:${lon},${lat},20000&limit=40&apiKey=${GEOAPIFY_KEY}`
       );
 
-      const data = await response.json();
+      const data: HotelSearchResponse = await response.json();
 
       return (
-        data.features?.map((feature) => {
+        data.features?.map((feature: HotelFeature) => {
           const props = feature.properties;
 
-          let type = "hotel";
+          let type: HotelCategory = "hotel";
 
           const categories = props.categories || [];
 
@@ -132,7 +187,7 @@ export default function Home() {
             : null;
 
           return {
-            name: props.name,
+            name: props.name || "Unnamed hotel",
             type: type.replace("_", " "),
             stars,
             ratingText: stars

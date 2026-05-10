@@ -6,8 +6,6 @@ import { screenVariants, containerVariants, itemVariants, cardVariants } from '@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { mockBudgetEntries } from '@/lib/mock-data'
-import { ArrowLeft } from 'lucide-react'
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const BudgetScreen = () => {
     const { setCurrentScreen } = useAppContext()
@@ -15,6 +13,7 @@ const BudgetScreen = () => {
     const totalBudget = mockBudgetEntries.reduce((sum, entry) => sum + entry.amount, 0)
     const totalSpent = mockBudgetEntries.reduce((sum, entry) => sum + entry.spent, 0)
     const remaining = totalBudget - totalSpent
+    const categoryColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6']
 
     return (
         <motion.div
@@ -65,50 +64,71 @@ const BudgetScreen = () => {
 
                 {/* Charts Section */}
                 <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                    {/* Bar Chart */}
                     <Card className="p-6 border-2 border-gray-200">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Budget vs Spent by Category</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={mockBudgetEntries} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis
-                                    dataKey="category"
-                                    angle={-45}
-                                    textAnchor="end"
-                                    height={80}
-                                    tick={{ fontSize: 12 }}
-                                />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="amount" fill="#3b82f6" name="Budget" />
-                                <Bar dataKey="spent" fill="#ef4444" name="Spent" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <div className="space-y-5">
+                            {mockBudgetEntries.map((entry, index) => {
+                                const spentPercent = Math.min((entry.spent / entry.amount) * 100, 100)
+
+                                return (
+                                    <div key={entry.id} className="space-y-2">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span className="text-sm font-medium text-gray-900">{entry.category}</span>
+                                            <span className="text-sm text-gray-600">
+                                                ${entry.spent} / ${entry.amount}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="h-3 w-full rounded-full bg-blue-100 overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full bg-blue-500"
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </div>
+                                            <div className="h-3 w-full rounded-full bg-red-100 overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full bg-red-500"
+                                                    style={{ width: `${spentPercent}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </Card>
 
-                    {/* Pie Chart */}
                     <Card className="p-6 border-2 border-gray-200">
                         <h3 className="text-lg font-bold text-gray-900 mb-4">Spending Distribution</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={mockBudgetEntries}
-                                    cx="50%"
-                                    cy="50%"
-                                    labelLine={false}
-                                    label={({ category, spent }) => `${category}: $${spent}`}
-                                    outerRadius={100}
-                                    fill="#8884d8"
-                                    dataKey="spent"
-                                >
-                                    {mockBudgetEntries.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'][index % 5]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        <div className="space-y-4">
+                            {mockBudgetEntries.map((entry, index) => {
+                                const percent = totalSpent === 0 ? 0 : (entry.spent / totalSpent) * 100
+
+                                return (
+                                    <div key={entry.id} className="space-y-2">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="h-3 w-3 rounded-full"
+                                                    style={{ backgroundColor: categoryColors[index % categoryColors.length] }}
+                                                />
+                                                <span className="text-sm font-medium text-gray-900">{entry.category}</span>
+                                            </div>
+                                            <span className="text-sm text-gray-600">{percent.toFixed(0)}%</span>
+                                        </div>
+                                        <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${percent}%`,
+                                                    backgroundColor: categoryColors[index % categoryColors.length],
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </Card>
                 </motion.div>
 
