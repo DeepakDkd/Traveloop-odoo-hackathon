@@ -1,10 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
+  CheckSquare,
+  FileText,
   Home,
   LogIn,
   Map,
   Plane,
+  ReceiptText,
   Search,
   User,
   UserPlus,
@@ -43,6 +46,7 @@ export const sidebarSections: AppNavigationSection[] = [
         href: "/trip-itinerary",
         icon: Calendar,
       },
+      { label: "Itinerary View", href: "/itinerary-view", icon: ReceiptText },
       { label: "Budget", href: "/budget", icon: Wallet, disabled: true },
     ],
   },
@@ -58,7 +62,8 @@ export const sidebarSections: AppNavigationSection[] = [
     items: [
       { label: "Register", href: "/register", icon: UserPlus },
       { label: "Login", href: "/login", icon: LogIn },
-      { label: "Profile", href: "/profile", icon: User, disabled: true },
+      { label: "Profile", href: "/profile", icon: User },
+      { label: "Notes", href: "/trip-notes", icon: FileText },
     ],
   },
 ];

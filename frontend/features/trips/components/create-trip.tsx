@@ -37,6 +37,11 @@ type TripFormValues = {
 
 type TripFormErrors = Partial<Record<keyof TripFormValues | "stops", string>>;
 
+type ApiData<T> = {
+  success: boolean;
+  data: T;
+};
+
 const initialValues: TripFormValues = {
   tripName: "",
   startDate: "",
@@ -111,6 +116,8 @@ export function CreateTrip() {
       ...current,
       [field]: value,
     }));
+
+    if (field === "place") setSelectedCity(null);
 
     setErrors((current) => ({
       ...current,

@@ -98,10 +98,9 @@ async function geocodePlace(place: string) {
   const response = await axios.get<GeoapifyGeocodeResponse>(
     "https://api.geoapify.com/v1/geocode/search",
     {
-      params: {
-        text: place,
-        limit: 1,
-        apiKey: GEOAPIFY_KEY,
+      method: "GET",
+      headers: {
+        Accept: "application/json",
       },
     },
   );
