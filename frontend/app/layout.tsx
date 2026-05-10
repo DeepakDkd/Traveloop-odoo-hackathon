@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter, Plus_Jakarta_Sans, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AppProvider } from "@/lib/context";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -31,7 +32,12 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", inter.variable, plusJakartaSans.variable, "font-sans", geist.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+      
+        <AppProvider>
+          {children}
+        </AppProvider>
+      </body>
     </html>
   );
 }
