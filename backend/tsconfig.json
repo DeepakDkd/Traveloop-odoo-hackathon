@@ -10,5 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/lib/db.js", "src/lib/prisma.js"]
+  "include": ["src/**/*.ts", "src/lib/db.js", "src/lib/prisma.js", "src/routes/trip.route.js"]
 }

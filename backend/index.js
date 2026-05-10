@@ -1,16 +1,20 @@
 import authRoutes from "./src/routes/auth.route.js";
 import dotenv from "dotenv";
-
-dotenv.config();
-
-
-
-
+import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
 import prisma from "./src/lib/prisma.js";
+import checklistRoutes from "./src/routes/checklist.route.js";
+import tripRoutes from "./src/routes/trip.route.js";
 
 const app = express();
+dotenv.config();
+
+app.use(cookieParser());
+
+
+
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -26,7 +30,7 @@ app.get("/", (_req, res) => {
 app.get("/health/db", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-
+    
     res.json({
       ok: true,
       database: "connected",
@@ -42,6 +46,8 @@ app.get("/health/db", async (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 
+app.use("/api/trips", tripRoutes);
+app.use("/api/checklist", checklistRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

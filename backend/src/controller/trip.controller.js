@@ -1,68 +1,102 @@
 import { PrismaClient } from "@prisma/client";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
 
 export const createTrip = async (req, res) => {
   try {
-    const { startDate, endDate, place, userId } = req.body;
+    const {
+      name,
+      description,
+      coverImage,
+      startDate,
+      endDate,
+      isPublic,
+    } = req.body;
+
+    const userId = req.user.id;
 
     const errors = [];
 
+    if (!name) errors.push("name is required.");
     if (!startDate) errors.push("startDate is required.");
     if (!endDate) errors.push("endDate is required.");
-    if (!place) errors.push("place (destination) is required.");
-    if (!userId) errors.push("userId is required.");
 
     if (errors.length) {
-      res.status(400).json({ success: false, errors });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors,
+      });
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     if (isNaN(start.getTime())) {
-      res.status(400).json({ success: false, errors: ["startDate is not a valid date."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["Invalid startDate"],
+      });
     }
 
     if (isNaN(end.getTime())) {
-      res.status(400).json({ success: false, errors: ["endDate is not a valid date."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["Invalid endDate"],
+      });
     }
 
     if (end <= start) {
-      res.status(400).json({ success: false, errors: ["endDate must be after startDate."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["endDate must be after startDate"],
+      });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user) {
-      res.status(404).json({ success: false, errors: ["User not found."] });
-      return;
-    }
+    const shareToken = isPublic
+      ? crypto.randomBytes(16).toString("hex")
+      : null;
 
     const trip = await prisma.trip.create({
       data: {
+        userId,
+        name,
+        description,
+        coverImage,
         startDate: start,
         endDate: end,
-        place,
-        userId,
-        sections: { create: [] },
+        isPublic: isPublic || false,
+        shareToken,
       },
       include: {
-        sections: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        stops: true,
+        budget: true,
+        expenses: true,
+        packingList: true,
+        notes: true,
+        community: true,
       },
     });
 
-    res.status(201).json({ success: true, message: "Trip created successfully.", data: trip });
+    res.status(201).json({
+      success: true,
+      message: "Trip created successfully",
+      data: trip,
+    });
   } catch (error) {
     console.error("[createTrip] Error:", error);
+
     res.status(500).json({
       success: false,
-      message: "Internal server error.",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -70,29 +104,47 @@ export const createTrip = async (req, res) => {
 
 export const getTripSuggestions = async (req, res) => {
   try {
-    const { place, startDate, endDate } = req.query;
+    const { place } = req.query;
 
     if (!place) {
-      res.status(400).json({ success: false, errors: ["place query param is required."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["place query param is required"],
+      });
     }
 
-    const suggestions = await prisma.suggestion.findMany({
-      where: { place: { contains: place, mode: "insensitive" } },
-      take: 9,
-      orderBy: { rating: "desc" },
+    const suggestions = await prisma.trip.findMany({
+      where: {
+        isPublic: true,
+        name: {
+          contains: place,
+          mode: "insensitive",
+        },
+      },
+      take: 10,
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
     });
 
     res.status(200).json({
       success: true,
       data: suggestions,
-      meta: { place, startDate, endDate, total: suggestions.length },
     });
   } catch (error) {
     console.error("[getTripSuggestions] Error:", error);
+
     res.status(500).json({
       success: false,
-      message: "Internal server error.",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -100,25 +152,34 @@ export const getTripSuggestions = async (req, res) => {
 
 export const getUserTrips = async (req, res) => {
   try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      res.status(400).json({ success: false, errors: ["userId is required."] });
-      return;
-    }
+    const userId = req.user.id;
 
     const trips = await prisma.trip.findMany({
-      where: { userId },
-      include: { sections: true },
-      orderBy: { createdAt: "desc" },
+      where: {
+        userId,
+      },
+      include: {
+        stops: true,
+        budget: true,
+        expenses: true,
+        packingList: true,
+        notes: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    res.status(200).json({ success: true, data: trips });
+    res.status(200).json({
+      success: true,
+      data: trips,
+    });
   } catch (error) {
     console.error("[getUserTrips] Error:", error);
+
     res.status(500).json({
       success: false,
-      message: "Internal server error.",
+      message: "Internal server error",
       error: error.message,
     });
   }
@@ -129,24 +190,54 @@ export const getTripById = async (req, res) => {
     const { id } = req.params;
 
     const trip = await prisma.trip.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       include: {
-        sections: { orderBy: { order: "asc" } },
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        stops: true,
+        budget: true,
+        expenses: true,
+        packingList: true,
+        notes: true,
+        community: true,
       },
     });
 
     if (!trip) {
-      res.status(404).json({ success: false, message: "Trip not found." });
-      return;
+      return res.status(404).json({
+        success: false,
+        message: "Trip not found",
+      });
     }
 
-    res.status(200).json({ success: true, data: trip });
+    if (
+      trip.userId !== req.user.id &&
+      !trip.isPublic
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: trip,
+    });
   } catch (error) {
     console.error("[getTripById] Error:", error);
+
     res.status(500).json({
       success: false,
-      message: "Internal server error.",
+      message: "Internal server error",
       error: error.message,
     });
   }
