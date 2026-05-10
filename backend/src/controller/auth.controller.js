@@ -2,6 +2,11 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 
+const sanitizeUser = (user) => {
+  const { passwordHash, ...safeUser } = user;
+  return safeUser;
+};
+
 export const registerUser = async (req, res) => {
   try {
     const {
@@ -12,18 +17,25 @@ export const registerUser = async (req, res) => {
       city,
       country,
       password,
-      addInfo,
+      additionalInfo,
+      additionalInformation,
     } = req.body;
-
-  
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedFirstName = firstName?.trim();
+    const normalizedLastName = lastName?.trim();
+    const normalizedPhoneNumber = phoneNumber?.trim();
+    const normalizedCity = city?.trim();
+    const normalizedCountry = country?.trim();
+    const normalizedAdditionalInfo =
+      additionalInfo?.trim() || additionalInformation?.trim() || undefined;
 
     if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !phone ||
-      !city ||
-      !country ||
+      !normalizedFirstName ||
+      !normalizedLastName ||
+      !normalizedEmail ||
+      !normalizedPhoneNumber ||
+      !normalizedCity ||
+      !normalizedCountry ||
       !password
     ) {
       return res.status(400).json({
@@ -34,7 +46,7 @@ export const registerUser = async (req, res) => {
 
     const existingUser = await prisma.user.findUnique({
       where: {
-        email,
+        email: normalizedEmail,
       },
     });
 
@@ -49,14 +61,14 @@ export const registerUser = async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
-        firstName,
-        lastName,
-        email,
-        phone,
-        city,
-        country,
-        addInfo,
-        photo: req.file ? `/${req.file.path.replace(/\\/g, "/")}` : null,
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
+        email: normalizedEmail,
+        phone: normalizedPhoneNumber,
+        city: normalizedCity,
+        country: normalizedCountry,
+        addInfo: normalizedAdditionalInfo,
+        photo: profilePhoto || undefined,
         passwordHash: hashedPassword,
       },
     });
@@ -72,19 +84,11 @@ export const registerUser = async (req, res) => {
       }
     );
 
-    const { passwordHash, ...userResponse } = newUser;
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      user: userResponse,
+      token,
+      user: sanitizeUser(newUser),
     });
   } catch (error) {
     console.log("REGISTER ERROR:", error);
@@ -98,19 +102,22 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
-    const { email, username, password } = req.body;
-    const loginEmail = email || username;
+    const { email, password } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    if (!loginEmail || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: {
-        email: loginEmail,
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
       },
     });
 
@@ -144,8 +151,6 @@ export const loginUser = async (req, res) => {
       }
     );
 
-    const { passwordHash, ...userResponse } = user;
-
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -156,7 +161,7 @@ export const loginUser = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Login successful",
-      user: userResponse,
+      user: sanitizeUser(user),
     });
   } catch (error) {
     console.log("LOGIN ERROR:", error);
@@ -177,3 +182,4 @@ export const logoutUser = async (req, res) => {
     message: "Logged out successfully",
   });
 };
+

@@ -40,17 +40,19 @@ export const sidebarSections: AppNavigationSection[] = [
       { label: "Dashboard", href: "/", icon: Home },
       { label: "Create Trip", href: "/create-trip", icon: Plane },
       { label: "My Trips", href: "/my-trips", icon: Map },
-      { label: "Trip Itinerary", href: "/trip-itinerary", icon: Calendar },
-      { label: "Budget", href: "/trip-budget", icon: Wallet },
-      { label: "Checklist", href: "/packing-checklist", icon: CheckSquare },
-      { label: "Expenses", href: "/expenses", icon: FileText },
+      {
+        label: "Trip Itinerary",
+        href: "/trip-itinerary",
+        icon: Calendar,
+      },
+      { label: "Budget", href: "/budget", icon: Wallet, disabled: true },
     ],
   },
   {
     title: "Explore",
     items: [
-      { label: "Search", href: "/search", icon: Search },
-      { label: "Community", href: "/community", icon: Users },
+      { label: "Activity Search", href: "/search", icon: Search },
+      { label: "Community", href: "/community", icon: Users, disabled: true },
     ],
   },
   {

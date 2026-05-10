@@ -22,7 +22,6 @@ app.use(cookieParser());
 app.use(createSecurityMiddleware());
 
 const PORT = process.env.PORT || 5000;
-
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
