@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../config/prisma.js";
+import prisma from "../lib/prisma.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -56,12 +56,12 @@ export const registerUser = async (req, res) => {
         firstName,
         lastName,
         email,
-        phoneNumber,
+        phone:phoneNumber,
         city,
         country,
-        additionalInfo,
-        password: hashedPassword,
-        profilePhoto,
+       addInfo:additionalInfo,
+        passwordHash: hashedPassword,
+        
       },
     });
 

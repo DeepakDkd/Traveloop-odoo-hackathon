@@ -1,8 +1,14 @@
-require("dotenv").config();
+import authRoutes from "./src/routes/auth.route.js";
+import dotenv from "dotenv";
 
-const cors = require("cors");
-const express = require("express");
-const prisma = require("./prisma");
+dotenv.config();
+
+
+
+
+import express from "express";
+import cors from "cors";
+import prisma from "./src/lib/prisma.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +39,9 @@ app.get("/health/db", async (_req, res) => {
     });
   }
 });
+
+app.use("/api/auth", authRoutes);
+
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
