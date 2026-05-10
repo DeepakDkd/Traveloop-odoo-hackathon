@@ -3,6 +3,7 @@
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent, HTMLInputTypeAttribute } from "react";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ type RegisterFormValues = {
   lastName: string;
   email: string;
   phoneNumber: string;
+  password: string;
   city: string;
   country: string;
   password: string;
@@ -40,6 +42,7 @@ const initialValues: RegisterFormValues = {
   lastName: "",
   email: "",
   phoneNumber: "",
+  password: "",
   city: "",
   country: "",
   password: "",
@@ -133,16 +136,22 @@ export function RegisterForm() {
         onSubmit={handleSubmit}
         noValidate
       >
-        <div className="overflow-hidden rounded-full border-2 border-black/10 bg-white">
+        <label className="cursor-pointer overflow-hidden rounded-full border-2 border-black/10 bg-white">
           <Image
-            src="/dummy-profile.svg"
+            src={photo ? URL.createObjectURL(photo) : "/dummy-profile.svg"}
             alt="Dummy profile"
             width={112}
             height={112}
             className="h-28 w-28"
             priority
           />
-        </div>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+          />
+        </label>
 
         <div className="register-inner w-full rounded-[1.25rem] p-4 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -171,6 +180,13 @@ export function RegisterForm() {
               value={values.phoneNumber}
               onChange={(value) => updateField("phoneNumber", value)}
               error={errors.phoneNumber}
+            />
+            <FormField
+              label="Password"
+              type="password"
+              value={values.password}
+              onChange={(value) => updateField("password", value)}
+              error={errors.password}
             />
             <FormField
               label="City"
@@ -333,6 +349,11 @@ function validate(values: RegisterFormValues) {
   }
 
   if (!values.phoneNumber.trim()) errors.phoneNumber = "Required";
+  if (!values.password.trim()) {
+    errors.password = "Required";
+  } else if (values.password.length < 8) {
+    errors.password = "Use at least 8 characters";
+  }
   if (!values.city.trim()) errors.city = "Required";
   if (!values.country.trim()) errors.country = "Required";
 

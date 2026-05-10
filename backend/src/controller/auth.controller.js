@@ -13,7 +13,7 @@ export const registerUser = async (req, res) => {
       firstName,
       lastName,
       email,
-      phoneNumber,
+      phone,
       city,
       country,
       password,
@@ -58,12 +58,6 @@ export const registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    let profilePhoto = "";
-
-    if (req.file) {
-      profilePhoto = req.file.path;
-    }
 
     const newUser = await prisma.user.create({
       data: {
@@ -188,3 +182,4 @@ export const logoutUser = async (req, res) => {
     message: "Logged out successfully",
   });
 };
+

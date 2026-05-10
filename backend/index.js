@@ -1,4 +1,5 @@
 import authRoutes from "./src/routes/auth.route.js";
+import adminRoutes from "./src/routes/admin.route.js";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import express from "express";
@@ -49,6 +50,7 @@ app.get("/health/db", async (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use("/api/trips", tripRoutes);
 app.use("/api/checklist", checklistRoutes);

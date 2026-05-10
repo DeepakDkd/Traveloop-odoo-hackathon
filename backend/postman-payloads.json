@@ -1,6 +1,104 @@
 {
+  "auth": {
+    "register": {
+      "method": "POST",
+      "url": "/api/auth/register",
+      "formData": {
+        "photo": "image file optional",
+        "firstName": "Aarav",
+        "lastName": "Shah",
+        "email": "aarav@example.com",
+        "phoneNumber": "+919999999999",
+        "city": "Mumbai",
+        "country": "India",
+        "password": "Password@123",
+        "additionalInfo": "Budget traveler"
+      }
+    },
+    "login": {
+      "method": "POST",
+      "url": "/api/auth/login",
+      "body": {
+        "email": "aarav@example.com",
+        "password": "Password@123"
+      }
+    },
+    "logout": {
+      "method": "POST",
+      "url": "/api/auth/logout"
+    }
+  },
+  "trips": {
+    "create": {
+      "method": "POST",
+      "url": "/api/trips",
+      "body": {
+        "name": "Paris and Rome Adventure",
+        "description": "Museums, food walks, and easy transport",
+        "startDate": "2026-06-01T00:00:00.000Z",
+        "endDate": "2026-06-08T00:00:00.000Z",
+        "isPublic": false
+      }
+    },
+    "list": {
+      "method": "GET",
+      "url": "/api/trips/user/all?q=rome&status=UPCOMING&sort=startDate&order=asc&groupBy=status"
+    },
+    "detail": {
+      "method": "GET",
+      "url": "/api/trips/:tripId"
+    },
+    "update": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId",
+      "body": {
+        "name": "Paris, Rome and Florence",
+        "description": "Updated trip plan",
+        "startDate": "2026-06-01T00:00:00.000Z",
+        "endDate": "2026-06-09T00:00:00.000Z"
+      }
+    },
+    "status": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/status",
+      "body": {
+        "status": "ONGOING"
+      }
+    },
+    "share": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/share",
+      "body": {
+        "isPublic": true,
+        "caption": "A compact Europe plan with food and museums."
+      }
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/api/trips/:tripId"
+    },
+    "suggestions": {
+      "method": "GET",
+      "url": "/api/trips/suggestions?q=paris&take=10"
+    },
+    "preplanned": {
+      "method": "GET",
+      "url": "/api/trips/preplanned?q=europe&take=12"
+    },
+    "clonePreplanned": {
+      "method": "POST",
+      "url": "/api/trips/preplanned/:tripId/clone"
+    },
+    "coverUpload": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/cover",
+      "formData": {
+        "coverImage": "image file"
+      }
+    }
+  },
   "stops": {
-    "addStop": {
+    "add": {
       "method": "POST",
       "url": "/api/trips/:tripId/stops",
       "body": {
@@ -11,7 +109,21 @@
         "notes": "Arrive and check in."
       }
     },
-    "reorderStops": {
+    "list": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/stops"
+    },
+    "update": {
+      "method": "PATCH",
+      "url": "/api/stops/:stopId",
+      "body": {
+        "cityId": "city_id",
+        "startDate": "2026-06-02T00:00:00.000Z",
+        "endDate": "2026-06-04T00:00:00.000Z",
+        "order": 1
+      }
+    },
+    "reorder": {
       "method": "PATCH",
       "url": "/api/trips/:tripId/stops/reorder",
       "body": {
@@ -26,12 +138,20 @@
           }
         ]
       }
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/api/stops/:stopId"
     }
   },
   "activities": {
     "search": {
       "method": "GET",
-      "url": "/api/activities/search?q=museum&cityId=:cityId&category=CULTURE"
+      "url": "/api/activities/search?q=museum&cityId=:cityId&category=CULTURE&take=20"
+    },
+    "cityActivities": {
+      "method": "GET",
+      "url": "/api/cities/:cityId/activities?category=ADVENTURE&take=20"
     },
     "addToStop": {
       "method": "POST",
@@ -53,6 +173,32 @@
         "duration": 120,
         "scheduledAt": "2026-06-02T18:00:00.000Z"
       }
+    },
+    "removeFromStop": {
+      "method": "DELETE",
+      "url": "/api/stops/:stopId/activities/:activityId"
+    }
+  },
+  "cities": {
+    "search": {
+      "method": "GET",
+      "url": "/api/cities/search?q=paris&country=france&take=20"
+    },
+    "popular": {
+      "method": "GET",
+      "url": "/api/cities/popular"
+    },
+    "detail": {
+      "method": "GET",
+      "url": "/api/cities/:cityId"
+    },
+    "save": {
+      "method": "POST",
+      "url": "/api/cities/:cityId/save"
+    },
+    "unsave": {
+      "method": "DELETE",
+      "url": "/api/cities/:cityId/save"
     }
   },
   "budget": {
@@ -67,6 +213,18 @@
         "mealBudget": 120,
         "otherBudget": 30,
         "currency": "INR"
+      }
+    },
+    "get": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/budget"
+    },
+    "update": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/budget",
+      "body": {
+        "totalBudget": 1500,
+        "mealBudget": 200
       }
     }
   },
@@ -84,18 +242,144 @@
         "discount": 0,
         "isPaid": true
       }
+    },
+    "list": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/expenses?q=hotel&category=STAY&isPaid=false&sort=grandTotal&order=desc"
+    },
+    "summary": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/expenses/summary"
+    },
+    "update": {
+      "method": "PATCH",
+      "url": "/api/expenses/:expenseId",
+      "body": {
+        "isPaid": true,
+        "taxPercent": 5,
+        "discount": 50
+      }
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/api/expenses/:expenseId"
+    }
+  },
+  "checklist": {
+    "create": {
+      "method": "POST",
+      "url": "/api/checklist",
+      "body": {
+        "tripId": "trip_id",
+        "items": [
+          {
+            "name": "Passport",
+            "category": "DOCUMENTS"
+          },
+          {
+            "name": "Phone charger",
+            "category": "ELECTRONICS"
+          }
+        ]
+      }
+    },
+    "get": {
+      "method": "GET",
+      "url": "/api/checklist/:tripId"
+    },
+    "addItem": {
+      "method": "POST",
+      "url": "/api/checklist/:tripId/item",
+      "body": {
+        "name": "Travel insurance",
+        "category": "DOCUMENTS"
+      }
+    },
+    "toggle": {
+      "method": "PATCH",
+      "url": "/api/checklist/toggle",
+      "body": {
+        "itemIds": [
+          "packing_item_id"
+        ],
+        "isPacked": true
+      }
+    },
+    "search": {
+      "method": "GET",
+      "url": "/api/checklist/:tripId/search?q=passport&category=DOCUMENTS&isPacked=true"
+    },
+    "reset": {
+      "method": "PATCH",
+      "url": "/api/checklist/:tripId/reset"
+    },
+    "deleteItem": {
+      "method": "DELETE",
+      "url": "/api/checklist/item/:itemId"
+    }
+  },
+  "notes": {
+    "create": {
+      "method": "POST",
+      "url": "/api/trips/:tripId/notes",
+      "body": {
+        "title": "Hotel check-in details",
+        "content": "Check in after 2pm, room 302, breakfast included.",
+        "scope": "STOP",
+        "stopId": "stop_id"
+      }
+    },
+    "list": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/notes?scope=STOP&stopId=:stopId&sort=desc"
+    },
+    "search": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/notes/search?q=hotel"
+    },
+    "update": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/notes/:noteId",
+      "body": {
+        "title": "Updated check-in details",
+        "content": "Late check-in confirmed."
+      }
+    },
+    "delete": {
+      "method": "DELETE",
+      "url": "/api/trips/:tripId/notes/:noteId"
     }
   },
   "community": {
+    "feed": {
+      "method": "GET",
+      "url": "/api/community?q=paris&country=france&category=FOOD&sort=likes&order=desc&take=20"
+    },
     "publish": {
       "method": "POST",
       "url": "/api/community/:tripId/publish",
       "body": {
         "caption": "Three days across old streets, food spots, and museums."
       }
+    },
+    "detail": {
+      "method": "GET",
+      "url": "/api/community/:tripId"
+    },
+    "like": {
+      "method": "PATCH",
+      "url": "/api/community/:tripId/like"
+    },
+    "publicShare": {
+      "method": "GET",
+      "url": "/api/public/trip/:shareToken"
     }
   },
   "profile": {
+    "me": {
+      "method": "GET",
+      "url": "/api/users/me"
+    },
     "update": {
       "method": "PATCH",
       "url": "/api/users/me",
@@ -115,15 +399,45 @@
       "formData": {
         "photo": "image file"
       }
+    },
+    "savedCities": {
+      "method": "GET",
+      "url": "/api/users/saved-cities"
     }
   },
-  "tripCover": {
-    "upload": {
+  "analytics": {
+    "tripAnalytics": {
+      "method": "GET",
+      "url": "/api/trips/:tripId/analytics"
+    }
+  },
+  "admin": {
+    "users": {
+      "method": "GET",
+      "url": "/api/admin/users?q=aarav&role=USER&sort=createdAt&order=desc&take=50"
+    },
+    "updateUserRole": {
       "method": "PATCH",
-      "url": "/api/trips/:tripId/cover",
-      "formData": {
-        "coverImage": "image file"
+      "url": "/api/admin/users/:userId/role",
+      "body": {
+        "role": "ADMIN"
       }
+    },
+    "deleteUser": {
+      "method": "DELETE",
+      "url": "/api/admin/users/:userId"
+    },
+    "popularCities": {
+      "method": "GET",
+      "url": "/api/admin/popular-cities?take=10"
+    },
+    "popularActivities": {
+      "method": "GET",
+      "url": "/api/admin/popular-activities?take=10"
+    },
+    "trends": {
+      "method": "GET",
+      "url": "/api/admin/trends"
     }
   }
 }

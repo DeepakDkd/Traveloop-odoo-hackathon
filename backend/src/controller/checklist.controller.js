@@ -1,44 +1,60 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "../lib/prisma.js";
+import { getOwnedTrip } from "../utils/access.js";
+import { sendError, sendSuccess } from "../utils/response.js";
 
-const prisma = new PrismaClient();
+const categories = [
+  "DOCUMENTS",
+  "CLOTHING",
+  "ELECTRONICS",
+  "TOILETRIES",
+  "MEDICINE",
+  "OTHER",
+];
+
+const buildChecklistResponse = (items) => {
+  const packedItems = items.filter((item) => item.isPacked).length;
+
+  return {
+    items,
+    progress: {
+      packed: packedItems,
+      total: items.length,
+      percentage: items.length ? Math.round((packedItems / items.length) * 100) : 0,
+    },
+  };
+};
+
+const validateCategory = (category) => {
+  return !category || categories.includes(category);
+};
 
 export const getChecklist = async (req, res) => {
   try {
     const { tripId } = req.params;
+    const trip = await getOwnedTrip(tripId, req.user.id);
+
+    if (!trip) {
+      return sendError(res, 404, "Trip not found.");
+    }
 
     const items = await prisma.packingItem.findMany({
       where: {
         tripId,
       },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    const totalItems = items.length;
-
-    const packedItems = items.filter(
-      (item) => item.isPacked
-    ).length;
-
-    res.status(200).json({
-      success: true,
-      data: {
-        items,
-        progress: {
-          packed: packedItems,
-          total: totalItems,
+      orderBy: [
+        {
+          category: "asc",
         },
-      },
+        {
+          createdAt: "desc",
+        },
+      ],
     });
+
+    return sendSuccess(res, 200, buildChecklistResponse(items));
   } catch (error) {
     console.error("[getChecklist] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };
 
@@ -47,83 +63,66 @@ export const createChecklist = async (req, res) => {
     const { tripId, items } = req.body;
 
     if (!tripId) {
-      return res.status(400).json({
-        success: false,
-        errors: ["tripId is required."],
-      });
+      return sendError(res, 400, undefined, ["tripId is required."]);
     }
 
-    const trip = await prisma.trip.findUnique({
-      where: {
-        id: tripId,
-      },
-    });
+    const trip = await getOwnedTrip(tripId, req.user.id);
 
     if (!trip) {
-      return res.status(404).json({
-        success: false,
-        errors: ["Trip not found."],
-      });
+      return sendError(res, 404, "Trip not found.");
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        errors: ["items array is required."],
-      });
+      return sendError(res, 400, undefined, ["items array is required."]);
     }
 
-    const createdItems = await prisma.packingItem.createMany({
+    const invalidItem = items.find((item) => !item.name || !validateCategory(item.category));
+
+    if (invalidItem) {
+      return sendError(res, 400, undefined, ["Each item requires a name and valid category."]);
+    }
+
+    await prisma.packingItem.createMany({
       data: items.map((item) => ({
         tripId,
         name: item.name,
         category: item.category || "OTHER",
+        isPacked: Boolean(item.isPacked),
       })),
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Checklist created successfully.",
-      data: createdItems,
+    const createdItems = await prisma.packingItem.findMany({
+      where: {
+        tripId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
+
+    return sendSuccess(res, 201, buildChecklistResponse(createdItems), "Checklist created successfully.");
   } catch (error) {
     console.error("[createChecklist] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };
 
 export const addItem = async (req, res) => {
   try {
     const { tripId } = req.params;
-
-    const {
-      name,
-      category,
-    } = req.body;
-
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        errors: ["name is required."],
-      });
-    }
-
-    const trip = await prisma.trip.findUnique({
-      where: {
-        id: tripId,
-      },
-    });
+    const { name, category, isPacked } = req.body;
+    const trip = await getOwnedTrip(tripId, req.user.id);
 
     if (!trip) {
-      return res.status(404).json({
-        success: false,
-        message: "Trip not found.",
-      });
+      return sendError(res, 404, "Trip not found.");
+    }
+
+    if (!name) {
+      return sendError(res, 400, undefined, ["name is required."]);
+    }
+
+    if (!validateCategory(category)) {
+      return sendError(res, 400, undefined, ["Invalid category."]);
     }
 
     const item = await prisma.packingItem.create({
@@ -131,22 +130,14 @@ export const addItem = async (req, res) => {
         tripId,
         name,
         category: category || "OTHER",
+        isPacked: Boolean(isPacked),
       },
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Item added.",
-      data: item,
-    });
+    return sendSuccess(res, 201, item, "Item added.");
   } catch (error) {
     console.error("[addItem] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };
 
@@ -154,41 +145,58 @@ export const toggleItem = async (req, res) => {
   try {
     const { itemIds, isPacked } = req.body;
 
-    if (
-      !Array.isArray(itemIds) ||
-      itemIds.length === 0
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "itemIds array is required",
-      });
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return sendError(res, 400, "itemIds array is required");
     }
 
-    const updatedItems =
-      await prisma.packingItem.updateMany({
-        where: {
-          id: {
-            in: itemIds,
-          },
-        },
-        data: {
-          isPacked,
-        },
-      });
+    if (typeof isPacked !== "boolean") {
+      return sendError(res, 400, undefined, ["isPacked must be boolean."]);
+    }
 
-    res.status(200).json({
-      success: true,
-      message: "Items updated successfully",
-      data: updatedItems,
+    const ownedItems = await prisma.packingItem.findMany({
+      where: {
+        id: {
+          in: itemIds,
+        },
+        trip: {
+          userId: req.user.id,
+        },
+      },
+      select: {
+        id: true,
+      },
     });
+
+    if (ownedItems.length !== itemIds.length) {
+      return sendError(res, 404, "One or more checklist items were not found.");
+    }
+
+    await prisma.packingItem.updateMany({
+      where: {
+        id: {
+          in: itemIds,
+        },
+        trip: {
+          userId: req.user.id,
+        },
+      },
+      data: {
+        isPacked,
+      },
+    });
+
+    const updatedItems = await prisma.packingItem.findMany({
+      where: {
+        id: {
+          in: itemIds,
+        },
+      },
+    });
+
+    return sendSuccess(res, 200, updatedItems, "Items updated successfully");
   } catch (error) {
     console.error("[toggleItem] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error");
   }
 };
 
@@ -196,17 +204,17 @@ export const deleteItem = async (req, res) => {
   try {
     const { itemId } = req.params;
 
-    const item = await prisma.packingItem.findUnique({
+    const item = await prisma.packingItem.findFirst({
       where: {
         id: itemId,
+        trip: {
+          userId: req.user.id,
+        },
       },
     });
 
     if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found.",
-      });
+      return sendError(res, 404, "Item not found.");
     }
 
     await prisma.packingItem.delete({
@@ -215,24 +223,21 @@ export const deleteItem = async (req, res) => {
       },
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Item deleted.",
-    });
+    return sendSuccess(res, 200, undefined, "Item deleted.");
   } catch (error) {
     console.error("[deleteItem] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };
 
 export const resetChecklist = async (req, res) => {
   try {
     const { tripId } = req.params;
+    const trip = await getOwnedTrip(tripId, req.user.id);
+
+    if (!trip) {
+      return sendError(res, 404, "Trip not found.");
+    }
 
     await prisma.packingItem.updateMany({
       where: {
@@ -243,55 +248,43 @@ export const resetChecklist = async (req, res) => {
       },
     });
 
-    res.status(200).json({
-      success: true,
-      message: "Checklist reset successfully.",
-    });
+    return sendSuccess(res, 200, undefined, "Checklist reset successfully.");
   } catch (error) {
     console.error("[resetChecklist] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };
 
 export const searchItems = async (req, res) => {
   try {
     const { tripId } = req.params;
+    const { q, category, isPacked } = req.query;
+    const trip = await getOwnedTrip(tripId, req.user.id);
 
-    const { q } = req.query;
-
-    if (!q) {
-      return res.status(400).json({
-        success: false,
-        errors: ["Search query is required."],
-      });
+    if (!trip) {
+      return sendError(res, 404, "Trip not found.");
     }
 
     const items = await prisma.packingItem.findMany({
       where: {
         tripId,
-        name: {
-          contains: q,
-          mode: "insensitive",
-        },
+        ...(category && { category }),
+        ...(isPacked !== undefined && { isPacked: isPacked === "true" }),
+        ...(q && {
+          name: {
+            contains: q,
+            mode: "insensitive",
+          },
+        }),
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
-    res.status(200).json({
-      success: true,
-      data: items,
-    });
+    return sendSuccess(res, 200, items);
   } catch (error) {
     console.error("[searchItems] Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: error.message,
-    });
+    return sendError(res, 500, "Internal server error.");
   }
 };

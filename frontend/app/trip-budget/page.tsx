@@ -1,181 +1,272 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { useAppContext } from '@/lib/context'
-import { screenVariants, containerVariants, itemVariants, cardVariants } from '@/lib/motion-config'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { mockBudgetEntries } from '@/lib/mock-data'
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
+import { DashboardPage } from "@/components/layout/dashboard-page";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { apiRequest, getSelectedTripId, setSelectedTripId } from "@/lib/api";
+import { BudgetSummary, Trip } from "@/lib/types";
 
-const BudgetScreen = () => {
-    const { setCurrentScreen } = useAppContext()
+type ApiData<T> = {
+  success: boolean;
+  data: T;
+};
 
-    const totalBudget = mockBudgetEntries.reduce((sum, entry) => sum + entry.amount, 0)
-    const totalSpent = mockBudgetEntries.reduce((sum, entry) => sum + entry.spent, 0)
-    const remaining = totalBudget - totalSpent
-    const categoryColors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6']
+type BudgetForm = {
+  totalBudget: string;
+  transportBudget: string;
+  stayBudget: string;
+  activityBudget: string;
+  mealBudget: string;
+  otherBudget: string;
+};
 
-    return (
-        <motion.div
-            variants={screenVariants}
-            initial="initial"
-            animate="animate"
-            className="min-h-screen bg-white"
-        >
-        
+const emptyForm: BudgetForm = {
+  totalBudget: "",
+  transportBudget: "",
+  stayBudget: "",
+  activityBudget: "",
+  mealBudget: "",
+  otherBudget: "",
+};
 
-            {/* Main Content */}
-            <motion.div
-                variants={containerVariants}
-                initial="initial"
-                animate="animate"
-                className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12"
+const colors = ["#0d6e6e", "#f59e0b", "#3d52a0", "#10b981", "#ef4444"];
+
+export default function BudgetScreen() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripId, setTripId] = useState("");
+  const [summary, setSummary] = useState<BudgetSummary | null>(null);
+  const [form, setForm] = useState<BudgetForm>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const urlTripId = new URLSearchParams(window.location.search).get("tripId");
+
+    async function loadTrips() {
+      try {
+        const payload = await apiRequest<ApiData<Trip[]>>("/api/trips/user/all?sort=startDate&order=desc");
+        const loadedTrips = payload.data || [];
+        const nextTripId = urlTripId || getSelectedTripId() || loadedTrips[0]?.id || "";
+        setTrips(loadedTrips);
+        setTripId(nextTripId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load trips");
+        setLoading(false);
+      }
+    }
+
+    loadTrips();
+  }, []);
+
+  useEffect(() => {
+    if (!tripId) return;
+    loadBudget(tripId);
+  }, [tripId]);
+
+  async function loadBudget(id: string) {
+    try {
+      setLoading(true);
+      setError("");
+      setSelectedTripId(id);
+      const payload = await apiRequest<ApiData<BudgetSummary>>(`/api/trips/${id}/budget`).catch(async () => {
+        const expensePayload = await apiRequest<ApiData<{ totalBudget: number; remainingBudget: number; totalSpent: number; categoryTotals: Record<string, number>; paidTotal: number; unpaidTotal: number }>>(`/api/trips/${id}/expenses/summary`);
+        return {
+          success: true,
+          data: {
+            budget: null,
+            currency: "INR",
+            spentAmount: expensePayload.data.totalSpent,
+            remainingAmount: expensePayload.data.remainingBudget,
+            categoryTotals: expensePayload.data.categoryTotals,
+            paidTotal: expensePayload.data.paidTotal,
+            unpaidTotal: expensePayload.data.unpaidTotal,
+          },
+        };
+      });
+      setSummary(payload.data);
+      setForm(payload.data.budget ? {
+        totalBudget: String(payload.data.budget.totalBudget || ""),
+        transportBudget: String(payload.data.budget.transportBudget || ""),
+        stayBudget: String(payload.data.budget.stayBudget || ""),
+        activityBudget: String(payload.data.budget.activityBudget || ""),
+        mealBudget: String(payload.data.budget.mealBudget || ""),
+        otherBudget: String(payload.data.budget.otherBudget || ""),
+      } : emptyForm);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load budget");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveBudget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tripId || !form.totalBudget) {
+      toast.error("Total budget is required");
+      return;
+    }
+
+    const body = Object.fromEntries(
+      Object.entries(form).map(([key, value]) => [key, Number(value || 0)]),
+    );
+
+    try {
+      setSaving(true);
+      const method = summary?.budget ? "PATCH" : "POST";
+      await apiRequest(`/api/trips/${tripId}/budget`, {
+        method,
+        body,
+      });
+      await loadBudget(tripId);
+      toast.success("Budget saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to save budget");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const chartData = useMemo(() => {
+    if (!summary) return [];
+    const budgets = {
+      TRANSPORT: Number(form.transportBudget || 0),
+      STAY: Number(form.stayBudget || 0),
+      ACTIVITY: Number(form.activityBudget || 0),
+      MEAL: Number(form.mealBudget || 0),
+      OTHER: Number(form.otherBudget || 0),
+    };
+
+    return Object.keys({ ...budgets, ...summary.categoryTotals }).map((category) => ({
+      category,
+      budget: budgets[category as keyof typeof budgets] || 0,
+      spent: summary.categoryTotals[category] || 0,
+    }));
+  }, [form, summary]);
+
+  const totalBudget = Number(form.totalBudget || summary?.budget?.totalBudget || 0);
+  const spent = summary?.spentAmount || 0;
+  const remaining = totalBudget - spent;
+
+  return (
+    <DashboardShell>
+      <DashboardPage>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#6b7280]">Budget insights</p>
+              <h1 className="mt-1 text-[28px] font-bold">Itinerary View with Budget</h1>
+            </div>
+            <select
+              value={tripId}
+              onChange={(event) => setTripId(event.target.value)}
+              className="h-11 rounded-xl border border-black/10 bg-white px-3 text-sm outline-none"
             >
-                {/* Summary Cards */}
-                <motion.div
-                    variants={itemVariants}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-12"
-                >
-                    <Card className="p-4 sm:p-6 border-2 border-gray-200">
-                        <div className="text-gray-600 text-sm font-medium">Total Budget</div>
-                        <div className="text-3xl sm:text-4xl font-bold text-gray-900 mt-2">
-                            ${totalBudget}
-                        </div>
-                    </Card>
-                    <Card className="p-4 sm:p-6 border-2 border-gray-200">
-                        <div className="text-gray-600 text-sm font-medium">Total Spent</div>
-                        <div className="text-3xl sm:text-4xl font-bold text-red-600 mt-2">
-                            ${totalSpent}
-                        </div>
-                    </Card>
-                    <Card className="p-4 sm:p-6 border-2 border-gray-200">
-                        <div className="text-gray-600 text-sm font-medium">Remaining</div>
-                        <div className="text-3xl sm:text-4xl font-bold text-green-600 mt-2">
-                            ${remaining}
-                        </div>
-                    </Card>
-                    <Card className="p-4 sm:p-6 border-2 border-gray-200">
-                        <div className="text-gray-600 text-sm font-medium">Spent %</div>
-                        <div className="text-3xl sm:text-4xl font-bold text-blue-600 mt-2">
-                            {Math.round((totalSpent / totalBudget) * 100)}%
-                        </div>
-                    </Card>
-                </motion.div>
+              <option value="">Select trip</option>
+              {trips.map((trip) => (
+                <option key={trip.id} value={trip.id}>{trip.name}</option>
+              ))}
+            </select>
+          </div>
 
-                {/* Charts Section */}
-                <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                    <Card className="p-6 border-2 border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Budget vs Spent by Category</h3>
-                        <div className="space-y-5">
-                            {mockBudgetEntries.map((entry, index) => {
-                                const spentPercent = Math.min((entry.spent / entry.amount) * 100, 100)
+          {loading ? (
+            <div className="flex items-center gap-2 rounded-xl bg-white p-4 text-sm text-[#6b7280]">
+              <Loader2 size={16} className="animate-spin" /> Loading budget...
+            </div>
+          ) : error ? (
+            <Notice tone="error" text={error} />
+          ) : !tripId ? (
+            <Notice text="Select a trip to manage budget." />
+          ) : (
+            <>
+              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard label="Total Budget" value={`$${totalBudget}`} />
+                <StatCard label="Total Spent" value={`$${spent}`} tone="red" />
+                <StatCard label="Remaining" value={`$${remaining}`} tone={remaining < 0 ? "red" : "green"} />
+                <StatCard label="Spent %" value={`${totalBudget ? Math.round((spent / totalBudget) * 100) : 0}%`} />
+              </section>
 
-                                return (
-                                    <div key={entry.id} className="space-y-2">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm font-medium text-gray-900">{entry.category}</span>
-                                            <span className="text-sm text-gray-600">
-                                                ${entry.spent} / ${entry.amount}
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="h-3 w-full rounded-full bg-blue-100 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-blue-500"
-                                                    style={{ width: '100%' }}
-                                                />
-                                            </div>
-                                            <div className="h-3 w-full rounded-full bg-red-100 overflow-hidden">
-                                                <div
-                                                    className="h-full rounded-full bg-red-500"
-                                                    style={{ width: `${spentPercent}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </Card>
+              <form onSubmit={saveBudget} className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold">Budget of this section</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.keys(form).map((key) => (
+                    <Input
+                      key={key}
+                      label={key.replace("Budget", " Budget")}
+                      type="number"
+                      min="0"
+                      value={form[key as keyof BudgetForm]}
+                      onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+                    />
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Budget"}</Button>
+                  <Link href={`/expenses?tripId=${tripId}`}><Button type="button" variant="secondary">View Expenses</Button></Link>
+                </div>
+              </form>
 
-                    <Card className="p-6 border-2 border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Spending Distribution</h3>
-                        <div className="space-y-4">
-                            {mockBudgetEntries.map((entry, index) => {
-                                const percent = totalSpent === 0 ? 0 : (entry.spent / totalSpent) * 100
-
-                                return (
-                                    <div key={entry.id} className="space-y-2">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className="h-3 w-3 rounded-full"
-                                                    style={{ backgroundColor: categoryColors[index % categoryColors.length] }}
-                                                />
-                                                <span className="text-sm font-medium text-gray-900">{entry.category}</span>
-                                            </div>
-                                            <span className="text-sm text-gray-600">{percent.toFixed(0)}%</span>
-                                        </div>
-                                        <div className="h-3 w-full rounded-full bg-gray-100 overflow-hidden">
-                                            <div
-                                                className="h-full rounded-full"
-                                                style={{
-                                                    width: `${percent}%`,
-                                                    backgroundColor: categoryColors[index % categoryColors.length],
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </Card>
-                </motion.div>
-
-                {/* Category Details */}
-                <motion.div variants={itemVariants}>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Budget by Category</h2>
-                    <div className="space-y-4">
-                        {mockBudgetEntries.map((entry) => (
-                            <motion.div key={entry.id} variants={cardVariants} whileHover="hover">
-                                <Card className="p-4 sm:p-6 border-2 border-gray-200 cursor-pointer hover:border-blue-300 transition-colors">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-gray-900">{entry.category}</h3>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                ${entry.spent} of ${entry.amount} spent
-                                            </p>
-                                        </div>
-                                        <div className="flex-1 sm:max-w-xs">
-                                            <div className="w-full bg-gray-300 rounded-full h-3">
-                                                <div
-                                                    className="bg-blue-600 h-3 rounded-full"
-                                                    style={{ width: `${(entry.spent / entry.amount) * 100}%` }}
-                                                ></div>
-                                            </div>
-                                            <div className="text-right mt-2 text-sm text-gray-600">
-                                                {Math.round((entry.spent / entry.amount) * 100)}%
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </motion.div>
+              <section className="grid gap-6 lg:grid-cols-2">
+                <Card className="p-5">
+                  <h3 className="mb-4 text-lg font-semibold">Budget vs Spent</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="category" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="budget" fill="#0d6e6e" name="Budget" />
+                      <Bar dataKey="spent" fill="#f59e0b" name="Spent" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+                <Card className="p-5">
+                  <h3 className="mb-4 text-lg font-semibold">Spending Distribution</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={chartData} dataKey="spent" nameKey="category" outerRadius={100} label>
+                        {chartData.map((_, index) => (
+                          <Cell key={index} fill={colors[index % colors.length]} />
                         ))}
-                    </div>
-                </motion.div>
-
-                {/* Back Button */}
-                <motion.div variants={itemVariants} className="mt-8">
-                    <Button
-                        onClick={() => setCurrentScreen('dashboard')}
-                        variant="ghost"
-                        className="w-full border-2 border-gray-300 text-gray-700 h-12"
-                    >
-                        Back to Dashboard
-                    </Button>
-                </motion.div>
-            </motion.div>
-        </motion.div>
-    )
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Card>
+              </section>
+            </>
+          )}
+        </div>
+      </DashboardPage>
+    </DashboardShell>
+  );
 }
-export default BudgetScreen
+
+function StatCard({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "red" | "green" }) {
+  const color = tone === "red" ? "text-red-600" : tone === "green" ? "text-green-600" : "text-[#1a1a2e]";
+  return (
+    <Card className="p-5">
+      <p className="text-sm text-[#6b7280]">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${color}`}>{value}</p>
+    </Card>
+  );
+}
+
+function Notice({ text, tone = "muted" }: { text: string; tone?: "muted" | "error" }) {
+  return (
+    <div className={`rounded-xl border px-4 py-6 text-center text-sm ${
+      tone === "error"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-dashed border-black/15 bg-white text-[#6b7280]"
+    }`}>
+      {text}
+    </div>
+  );
+}

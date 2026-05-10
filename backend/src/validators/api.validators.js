@@ -180,11 +180,14 @@ export const expenseListSchema = z.object({
   }),
   body: z.any().optional(),
   query: z.object({
+    q: optionalString,
     category: z.enum(expenseCategories).optional(),
     isPaid: z
       .enum(["true", "false"])
       .transform((value) => value === "true")
       .optional(),
+    sort: z.enum(["createdAt", "category", "description", "grandTotal", "isPaid"]).optional(),
+    order: z.enum(["asc", "desc"]).optional(),
   }),
 });
 

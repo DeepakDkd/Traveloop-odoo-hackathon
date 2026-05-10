@@ -99,16 +99,34 @@ export const getExpenses = async (req, res) => {
     }
 
     const query = req.validated?.query || req.query;
+    const sort = query.sort || "createdAt";
+    const order = query.order || "desc";
 
     const expenses = await prisma.expense.findMany({
       where: {
         tripId,
         ...(query.category && { category: query.category }),
         ...(query.isPaid !== undefined && { isPaid: query.isPaid }),
+        ...(query.q && {
+          OR: [
+            {
+              invoiceNumber: {
+                contains: query.q,
+                mode: "insensitive",
+              },
+            },
+            {
+              description: {
+                contains: query.q,
+                mode: "insensitive",
+              },
+            },
+          ],
+        }),
       },
       include: expenseInclude,
       orderBy: {
-        createdAt: "desc",
+        [sort]: order,
       },
     });
 
