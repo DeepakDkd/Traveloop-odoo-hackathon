@@ -1,95 +1,101 @@
 import axios from "axios";
 
-const GEOAPIFY_KEY =
-  process.env.NEXT_PUBLIC_GEOAPIFY_KEY;
+const GEOAPIFY_KEY = process.env.NEXT_PUBLIC_GEOAPIFY_KEY;
 
-const CATEGORY_META = {
-  "entertainment.museum": [
-    "🏛️",
-    "Museum",
-    "#6c5ce7",
-  ],
-  "tourism.sights": [
-    "🏰",
-    "Landmark",
-    "#e17055",
-  ],
-  "tourism.attraction": [
-    "🎯",
-    "Attraction",
-    "#fd79a8",
-  ],
+type CategoryMetaEntry = [string, string, string];
+
+const CATEGORY_META: Record<string, CategoryMetaEntry> = {
+  "entertainment.museum": ["museum", "Museum", "#6c5ce7"],
+  "tourism.sights": ["landmark", "Landmark", "#e17055"],
+  "tourism.attraction": ["attraction", "Attraction", "#fd79a8"],
   "tourism.sights.place_of_worship": [
-    "⛪",
+    "worship",
     "Place of Worship",
     "#a29bfe",
   ],
-  "leisure.park": [
-    "🌳",
-    "Park",
-    "#00b894",
-  ],
-  natural: [
-    "🌿",
-    "Nature",
-    "#55efc4",
-  ],
-  "natural.water": [
-    "💧",
-    "Lake / River",
-    "#74b9ff",
-  ],
-  "natural.forest": [
-    "🌲",
-    "Forest",
-    "#00cec9",
-  ],
-  heritage: [
-    "🏺",
-    "Heritage",
-    "#fdcb6e",
-  ],
+  "leisure.park": ["park", "Park", "#00b894"],
+  natural: ["nature", "Nature", "#55efc4"],
+  "natural.water": ["water", "Lake / River", "#74b9ff"],
+  "natural.forest": ["forest", "Forest", "#00cec9"],
+  heritage: ["heritage", "Heritage", "#fdcb6e"],
 };
 
-function getCategoryMeta(categories = []) {
-  for (const cat of categories) {
-    for (const key in CATEGORY_META) {
-      if (cat === key) {
-        return CATEGORY_META[key];
-      }
+type GeoapifyGeocodeResponse = {
+  features?: Array<{
+    geometry: {
+      coordinates: [number, number];
+    };
+    properties: {
+      city?: string;
+      name?: string;
+    };
+  }>;
+};
+
+type GeoapifyPlacesResponse = {
+  features?: Array<{
+    geometry: {
+      coordinates: [number, number];
+    };
+    properties?: {
+      name?: string;
+      formatted?: string;
+      address_line2?: string;
+      categories?: string[];
+      datasource?: {
+        raw?: Record<string, string>;
+      };
+    };
+  }>;
+};
+
+type PlaceResult = {
+  name: string;
+  icon: string;
+  label: string;
+  color: string;
+  trending: boolean;
+  address: string;
+  opening_hours: string;
+  website: string;
+  wikipedia: string;
+  phone: string;
+  lat: number;
+  lon: number;
+};
+
+function getCategoryMeta(categories: string[]) {
+  for (const category of categories) {
+    const meta = CATEGORY_META[category];
+
+    if (meta) {
+      return meta;
     }
   }
 
-  return [
-    "📍",
-    "Point of Interest",
-    "#dfe6e9",
-  ];
+  return ["place", "Point of Interest", "#dfe6e9"] satisfies CategoryMetaEntry;
 }
 
-function wikiUrl(wikiTag) {
-  if (!wikiTag) return "";
+function wikiUrl(wikiTag: string) {
+  if (!wikiTag) {
+    return "";
+  }
 
   if (wikiTag.startsWith("http")) {
     return wikiTag;
   }
 
   if (wikiTag.includes(":")) {
-    const [lang, title] =
-      wikiTag.split(":");
+    const [language, title] = wikiTag.split(":");
 
-    return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(
-      title
-    )}`;
+    return `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title)}`;
   }
 
-  return `https://en.wikipedia.org/wiki/${encodeURIComponent(
-    wikiTag
-  )}`;
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(wikiTag)}`;
 }
 
-async function geocodePlace(place) {
-  const response = await axios.get(
+async function geocodePlace(place: string) {
+  const response = await axios.get<GeoapifyGeocodeResponse>(
     "https://api.geoapify.com/v1/geocode/search",
     {
       params: {
@@ -97,148 +103,105 @@ async function geocodePlace(place) {
         limit: 1,
         apiKey: GEOAPIFY_KEY,
       },
-    }
+    },
   );
 
-  const features =
-    response.data.features || [];
+  const features = response.data.features ?? [];
 
-  if (!features.length) return null;
+  if (features.length === 0) {
+    return null;
+  }
 
   const feature = features[0];
 
   return {
     lat: feature.geometry.coordinates[1],
     lon: feature.geometry.coordinates[0],
-    name:
-      feature.properties.city ||
-      feature.properties.name ||
-      place,
+    name: feature.properties.city || feature.properties.name || place,
   };
 }
 
-async function searchPlaces(lat, lon) {
-  const response = await axios.get(
+async function searchPlaces(lat: number, lon: number) {
+  const response = await axios.get<GeoapifyPlacesResponse>(
     "https://api.geoapify.com/v2/places",
     {
       params: {
         categories:
           "tourism.sights,tourism.attraction,entertainment.museum,leisure.park,natural,heritage,building.tourism",
-
         filter: `circle:${lon},${lat},15000`,
-
         limit: 60,
-
         apiKey: GEOAPIFY_KEY,
-
         lang: "en",
       },
-    }
+    },
   );
 
-  const features =
-    response.data.features || [];
+  const features = response.data.features ?? [];
 
   return features
-    .map((feat) => {
-      const props =
-        feat.properties || {};
+    .flatMap((feature) => {
+      const properties = feature.properties ?? {};
+      const name = properties.name?.trim() ?? "";
 
-      const name =
-        props.name?.trim() || "";
+      if (!name) {
+        return [];
+      }
 
-      if (!name) return null;
+      const raw = properties.datasource?.raw ?? {};
+      const categories = properties.categories ?? [];
+      const [icon, label, color] = getCategoryMeta(categories);
+      const wikipedia = raw.wikipedia || raw.wikidata;
 
-      const raw =
-        props.datasource?.raw || {};
-
-      const categories =
-        props.categories || [];
-
-      const [icon, label, color] =
-        getCategoryMeta(categories);
-
-      const wikipedia =
-        raw.wikipedia || raw.wikidata;
-
-      const trending = Boolean(
-        wikipedia || raw.opening_hours
-      );
-
-      return {
-        name,
-        icon,
-        label,
-        color,
-        trending,
-        address:
-          props.formatted ||
-          props.address_line2 ||
-          "",
-
-        opening_hours:
-          raw.opening_hours || "",
-
-        website: raw.website || "",
-
-        wikipedia: wikiUrl(
-          raw.wikipedia || ""
-        ),
-
-        phone:
-          raw.phone ||
-          raw["contact:phone"] ||
-          "",
-
-        lat:
-          feat.geometry.coordinates[1],
-
-        lon:
-          feat.geometry.coordinates[0],
-      };
+      return [
+        {
+          name,
+          icon,
+          label,
+          color,
+          trending: Boolean(wikipedia || raw.opening_hours),
+          address: properties.formatted || properties.address_line2 || "",
+          opening_hours: raw.opening_hours || "",
+          website: raw.website || "",
+          wikipedia: wikiUrl(raw.wikipedia || ""),
+          phone: raw.phone || raw["contact:phone"] || "",
+          lat: feature.geometry.coordinates[1],
+          lon: feature.geometry.coordinates[0],
+        },
+      ] satisfies PlaceResult[];
     })
     .filter(Boolean);
 }
 
-export async function POST(req) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
+    const body = (await request.json()) as {
+      place?: string;
+    };
 
     const place = body.place?.trim();
 
     if (!place) {
       return Response.json(
         {
-          error:
-            "Please enter a place name",
+          error: "Please enter a place name",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const geo =
-      await geocodePlace(place);
+    const geo = await geocodePlace(place);
 
     if (!geo) {
       return Response.json(
         {
-          error:
-            "Could not find that place",
+          error: "Could not find that place",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    const places =
-      await searchPlaces(
-        geo.lat,
-        geo.lon
-      );
-
-    const trending =
-      places.filter(
-        (p) => p.trending
-      );
+    const places = await searchPlaces(geo.lat, geo.lon);
+    const trending = places.filter((item) => item.trending);
 
     return Response.json({
       placeName: geo.name,
@@ -252,10 +215,9 @@ export async function POST(req) {
 
     return Response.json(
       {
-        error:
-          "Something went wrong",
+        error: "Something went wrong",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

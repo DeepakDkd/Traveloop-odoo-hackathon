@@ -1,83 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowUpDown,
   Calendar,
-  Edit,
   Eye,
   MapPin,
+  Plus,
   Search,
   SlidersHorizontal,
   Trash2,
+  Wallet,
 } from "lucide-react";
 
 import { DashboardPage } from "@/components/layout/dashboard-page";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  deleteStoredTrip,
+  formatTripBudget,
+  formatTripDateRange,
+  getTripDestinations,
+  getTripStatus,
+  readStoredTrips,
+  subscribeToTripStorage,
+} from "@/features/trips/lib/storage";
+import type { SavedTrip, SavedTripStatus } from "@/features/trips/lib/types";
 
-type TripStatus = "ongoing" | "upcoming" | "completed";
+const sectionOrder: SavedTripStatus[] = ["ongoing", "upcoming", "completed"];
 
-type Trip = {
-  id: number;
-  name: string;
-  destination: string;
-  dates: string;
-  progress: number;
-  image: string;
-  status: TripStatus;
-};
-
-const initialTrips: Trip[] = [
-  {
-    id: 1,
-    name: "Southeast Asia Backpacking",
-    destination: "Thailand, Vietnam, Cambodia",
-    dates: "May 1 - May 21, 2026",
-    progress: 45,
-    image:
-      "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?w=900&h=520&fit=crop",
-    status: "ongoing",
-  },
-  {
-    id: 2,
-    name: "European Summer",
-    destination: "Paris, Rome, Barcelona",
-    dates: "Jun 15 - Jun 30, 2026",
-    progress: 0,
-    image:
-      "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=900&h=520&fit=crop",
-    status: "upcoming",
-  },
-  {
-    id: 3,
-    name: "Japan Cherry Blossom",
-    destination: "Tokyo, Kyoto, Osaka",
-    dates: "Apr 1 - Apr 12, 2026",
-    progress: 100,
-    image:
-      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=900&h=520&fit=crop",
-    status: "completed",
-  },
-  {
-    id: 4,
-    name: "New York City Weekend",
-    destination: "New York, USA",
-    dates: "Mar 20 - Mar 23, 2026",
-    progress: 100,
-    image:
-      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=900&h=520&fit=crop",
-    status: "completed",
-  },
-];
-
-const sectionOrder: TripStatus[] = ["ongoing", "upcoming", "completed"];
-
-const sectionLabels: Record<TripStatus, string> = {
+const sectionLabels: Record<SavedTripStatus, string> = {
   ongoing: "Ongoing",
   upcoming: "Upcoming",
   completed: "Completed",
@@ -85,43 +40,49 @@ const sectionLabels: Record<TripStatus, string> = {
 
 export function MyTrips() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<TripStatus | "all">("all");
+  const [activeFilter, setActiveFilter] = useState<SavedTripStatus | "all">("all");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [trips, setTrips] = useState(initialTrips);
+  const trips = useSyncExternalStore(
+    subscribeToTripStorage,
+    readStoredTrips,
+    () => [] as SavedTrip[],
+  );
 
   const filteredTrips = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     const nextTrips = trips.filter((trip) => {
+      const tripStatus = getTripStatus(trip);
       const matchesFilter =
-        activeFilter === "all" ? true : trip.status === activeFilter;
-
+        activeFilter === "all" ? true : tripStatus === activeFilter;
       const matchesQuery =
         normalizedQuery.length === 0
           ? true
-          : `${trip.name} ${trip.destination} ${trip.dates}`
+          : `${trip.tripName} ${getTripDestinations(trip)} ${trip.startDate} ${trip.endDate}`
               .toLowerCase()
               .includes(normalizedQuery);
 
       return matchesFilter && matchesQuery;
     });
 
-    return nextTrips.sort((a, b) => {
-      const comparison = a.name.localeCompare(b.name);
+    return nextTrips.sort((left, right) => {
+      const comparison = left.tripName.localeCompare(right.tripName);
       return sortDirection === "asc" ? comparison : comparison * -1;
     });
   }, [activeFilter, searchQuery, sortDirection, trips]);
 
-  const groupedTrips = useMemo(() => {
-    return sectionOrder.map((status) => ({
-      status,
-      title: sectionLabels[status],
-      trips: filteredTrips.filter((trip) => trip.status === status),
-    }));
-  }, [filteredTrips]);
+  const groupedTrips = useMemo(
+    () =>
+      sectionOrder.map((status) => ({
+        status,
+        title: sectionLabels[status],
+        trips: filteredTrips.filter((trip) => getTripStatus(trip) === status),
+      })),
+    [filteredTrips],
+  );
 
-  function handleDeleteTrip(id: number) {
-    setTrips((current) => current.filter((trip) => trip.id !== id));
+  function handleDeleteTrip(id: string) {
+    deleteStoredTrip(id);
   }
 
   function toggleFilter() {
@@ -148,20 +109,30 @@ export function MyTrips() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-[#6b7280]">
-                Organize, review, and continue planning
+                Trips saved in your browser
               </p>
               <h1 className="mt-1 text-[28px] font-bold text-[#1a1a2e]">
                 My Trips
               </h1>
             </div>
 
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0d6e6e]">
-                Total Trips
-              </p>
-              <p className="mt-1 text-lg font-semibold text-[#1a1a2e]">
-                {trips.length} trips saved
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0d6e6e]">
+                  Total Trips
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1a1a2e]">
+                  {trips.length} saved
+                </p>
+              </div>
+
+              <Link
+                href="/create-trip"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#f59e0b] px-4 text-[14px] font-medium text-[#1a1a2e] transition-all duration-200 hover:bg-[#e58e0a]"
+              >
+                <Plus size={16} />
+                New Trip
+              </Link>
             </div>
           </div>
 
@@ -175,34 +146,53 @@ export function MyTrips() {
           />
         </div>
 
-        <div className="space-y-8">
-          {groupedTrips.map((section) => (
-            <section key={section.status} className="space-y-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-[20px] font-semibold text-[#1a1a2e]">
-                  {section.title}
-                </h2>
-                <span className="text-[14px] font-normal text-[#6b7280]">
-                  ({section.trips.length})
-                </span>
-              </div>
-
-              {section.trips.length > 0 ? (
-                <div className="space-y-4">
-                  {section.trips.map((trip) => (
-                    <TripCard
-                      key={trip.id}
-                      trip={trip}
-                      onDelete={() => handleDeleteTrip(trip.id)}
-                    />
-                  ))}
+        {trips.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center">
+            <h2 className="text-2xl font-semibold text-[#1a1a2e]">
+              No trips saved yet
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[#6b7280]">
+              Create a trip, add hotels and places, then it will show up here with
+              all of its saved stops and notes.
+            </p>
+            <Link
+              href="/create-trip"
+              className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#f59e0b] px-4 text-[14px] font-medium text-[#1a1a2e] transition-all duration-200 hover:bg-[#e58e0a]"
+            >
+              <Plus size={16} />
+              Create Trip
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {groupedTrips.map((section) => (
+              <section key={section.status} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[20px] font-semibold text-[#1a1a2e]">
+                    {section.title}
+                  </h2>
+                  <span className="text-[14px] font-normal text-[#6b7280]">
+                    ({section.trips.length})
+                  </span>
                 </div>
-              ) : (
-                <EmptyState title={section.title} />
-              )}
-            </section>
-          ))}
-        </div>
+
+                {section.trips.length > 0 ? (
+                  <div className="space-y-4">
+                    {section.trips.map((trip) => (
+                      <TripCard
+                        key={trip.id}
+                        trip={trip}
+                        onDelete={() => handleDeleteTrip(trip.id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState title={section.title} />
+                )}
+              </section>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardPage>
   );
@@ -218,7 +208,7 @@ function TripsToolbar({
 }: {
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  activeFilter: TripStatus | "all";
+  activeFilter: SavedTripStatus | "all";
   sortDirection: "asc" | "desc";
   onToggleFilter: () => void;
   onToggleSort: () => void;
@@ -239,7 +229,7 @@ function TripsToolbar({
           type="search"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search your trips..."
+          placeholder="Search your saved trips..."
           className="h-11 w-full rounded-xl border border-black/10 bg-white pl-10 pr-3 text-sm text-[#1a1a2e] outline-none transition-all duration-200 placeholder:text-[#6b7280] focus:border-[#0d6e6e] focus:ring-2 focus:ring-[#0d6e6e]/15"
         />
       </div>
@@ -285,72 +275,66 @@ function TripCard({
   trip,
   onDelete,
 }: {
-  trip: Trip;
+  trip: SavedTrip;
   onDelete: () => void;
 }) {
+  const tripStatus = getTripStatus(trip);
+  const destinations = getTripDestinations(trip);
+
   return (
     <Card hover className="overflow-hidden p-0">
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="relative aspect-[2/1] overflow-hidden sm:w-48 sm:shrink-0 sm:aspect-auto">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={trip.image}
-            alt={trip.name}
-            className="h-full w-full object-cover"
-          />
+        <div className="flex items-end bg-[linear-gradient(135deg,#0d6e6e_0%,#14b8a6_55%,#f59e0b_100%)] p-5 text-white sm:w-56 sm:shrink-0">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
+              {trip.stops.length} stop{trip.stops.length === 1 ? "" : "s"}
+            </p>
+            <h3 className="mt-3 text-xl font-semibold">{trip.tripName}</h3>
+            <p className="mt-2 text-sm text-white/85">{destinations}</p>
+          </div>
         </div>
 
         <div className="flex-1 p-4 sm:py-4 sm:pl-0 sm:pr-4">
-          <div className="mb-2 flex items-start justify-between gap-4">
-            <div>
-              <h3 className="mb-1 text-[16px] font-semibold text-[#1a1a2e]">
-                {trip.name}
-              </h3>
-              <div className="flex flex-col gap-1">
-                <p className="flex items-center gap-1 text-[14px] text-[#6b7280]">
-                  <MapPin size={14} />
-                  {trip.destination}
-                </p>
-                <p className="flex items-center gap-1 text-[12px] text-[#6b7280]">
-                  <Calendar size={12} />
-                  {trip.dates}
-                </p>
-              </div>
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="flex items-center gap-2 text-[14px] text-[#6b7280]">
+                <MapPin size={14} />
+                {destinations}
+              </p>
+              <p className="flex items-center gap-2 text-[13px] text-[#6b7280]">
+                <Calendar size={13} />
+                {formatTripDateRange(trip.startDate, trip.endDate)}
+              </p>
+              <p className="flex items-center gap-2 text-[13px] text-[#6b7280]">
+                <Wallet size={13} />
+                {formatTripBudget(trip.budget)}
+              </p>
             </div>
-            <Badge variant={trip.status}>
-              {trip.status.charAt(0).toUpperCase() + trip.status.slice(1)}
+            <Badge variant={tripStatus}>
+              {tripStatus.charAt(0).toUpperCase() + tripStatus.slice(1)}
             </Badge>
           </div>
 
-          {trip.progress > 0 && trip.progress < 100 ? (
-            <div className="mb-3">
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[12px] text-[#6b7280]">Trip Progress</span>
-                <span className="text-[12px] font-medium text-[#1a1a2e]">
-                  {trip.progress}%
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-[#e5e7eb]">
-                <div
-                  className="h-full bg-[#f59e0b] transition-all duration-300"
-                  style={{ width: `${trip.progress}%` }}
-                />
-              </div>
-            </div>
-          ) : null}
+          <div className="mb-4 flex flex-wrap gap-2 text-xs text-[#6b7280]">
+            <span className="rounded-full bg-[#f3f4f6] px-3 py-1">
+              {trip.notes.length} note{trip.notes.length === 1 ? "" : "s"}
+            </span>
+            <span className="rounded-full bg-[#f3f4f6] px-3 py-1">
+              Saved {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              }).format(new Date(trip.updatedAt))}
+            </span>
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/trip-itinerary">
-              <Button size="sm" variant="primary" className="min-w-[92px]">
-                <Eye size={14} />
-                View
-              </Button>
-            </Link>
-            <Link href="/create-trip">
-              <Button size="sm" variant="secondary" className="min-w-[92px]">
-                <Edit size={14} />
-                Edit
-              </Button>
+            <Link
+              href={`/trip-itinerary/${trip.id}`}
+              className="inline-flex h-8 min-w-[92px] items-center justify-center gap-2 rounded-xl bg-[#f59e0b] px-3 text-[12px] font-medium text-[#1a1a2e] transition-all duration-200 hover:bg-[#e58e0a]"
+            >
+              <Eye size={14} />
+              View
             </Link>
             <Button
               size="sm"
@@ -359,6 +343,7 @@ function TripCard({
               className="text-[#ef4444] hover:bg-[#ef4444]/10 hover:text-[#dc2626]"
             >
               <Trash2 size={14} />
+              Delete
             </Button>
           </div>
         </div>
