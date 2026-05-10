@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── ENUMS ───────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
 
 enum TripStatus {
   UPCOMING
@@ -50,19 +56,19 @@ enum NoteScope {
 
 model User {
   id           String   @id @default(cuid())
-  firstName         String?
-  lastName         String?
+  firstName    String?
+  lastName     String?
   email        String   @unique
   passwordHash String
-  phone String
+  phone        String?
   photo        String?
   language     String?  @default("en")
+  role         Role     @default(USER)
+  city         String?
+  country      String?
+  addInfo      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  city String
-  country String
-  addInfo String?
 
   trips        Trip[]
   savedCities  SavedCity[]
@@ -71,17 +77,17 @@ model User {
 // ─── CITY (master list) ──────────────────────────────────
 
 model City {
-  id          String  @id @default(cuid())
-  name        String
-  country     String
-  region      String?
-  costIndex   Float?         // relative cost score
-  popularity  Int?           @default(0)
-  imageUrl    String?
+  id         String  @id @default(cuid())
+  name       String
+  country    String
+  region     String?
+  costIndex  Float?
+  popularity Int?    @default(0)
+  imageUrl   String?
 
-  stops       Stop[]
-  savedBy     SavedCity[]
-  activities  Activity[]
+  stops      Stop[]
+  savedBy    SavedCity[]
+  activities Activity[]
 }
 
 model SavedCity {
@@ -99,47 +105,49 @@ model SavedCity {
 // ─── TRIP ────────────────────────────────────────────────
 
 model Trip {
-  id          String     @id @default(cuid())
-  userId      String
-  name        String
-  description String?
-  coverImage  String?
-  startDate   DateTime
-  endDate     DateTime
-  status      TripStatus @default(UPCOMING)
-  isPublic    Boolean    @default(false)
-  shareToken  String?    @unique  // for public URL
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  coverImage    String?
+  startDate     DateTime
+  endDate       DateTime
+  status        TripStatus @default(UPCOMING)
+  isPublic      Boolean    @default(false)
+  isPreplanned  Boolean    @default(false)  // admin-seeded template trips
+  shareToken    String?    @unique
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stops       Stop[]
-  budget      Budget?
-  expenses    Expense[]
-  packingList PackingItem[]
-  notes       TripNote[]
-  community   CommunityPost?
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stops         Stop[]
+  budget        Budget?
+  expenses      Expense[]
+  packingList   PackingItem[]
+  notes         TripNote[]
+  community     CommunityPost?
 }
 
-// ─── STOP (city within a trip) ───────────────────────────
+// ─── STOP ────────────────────────────────────────────────
 
 model Stop {
   id         String   @id @default(cuid())
   tripId     String
   cityId     String
-  order      Int               // for reordering stops
+  order      Int
   startDate  DateTime
   endDate    DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  city       City     @relation(fields: [cityId], references: [id])
+  trip       Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city       City           @relation(fields: [cityId], references: [id])
   activities StopActivity[]
   notes      TripNote[]
+  expenses   Expense[]
 }
 
-// ─── ACTIVITY (master catalog) ───────────────────────────
+// ─── ACTIVITY ────────────────────────────────────────────
 
 model Activity {
   id          String           @id @default(cuid())
@@ -148,17 +156,17 @@ model Activity {
   description String?
   category    ActivityCategory @default(OTHER)
   cost        Float?
-  duration    Int?             // in minutes
+  duration    Int?
   imageUrl    String?
 
-  city        City             @relation(fields: [cityId], references: [id])
+  city        City           @relation(fields: [cityId], references: [id])
   stops       StopActivity[]
 }
 
-// ─── STOP <-> ACTIVITY (join table) ──────────────────────
+// ─── STOP <-> ACTIVITY ───────────────────────────────────
 
 model StopActivity {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   stopId      String
   activityId  String
   scheduledAt DateTime?
@@ -190,18 +198,24 @@ model Budget {
 // ─── EXPENSE (invoice line items) ────────────────────────
 
 model Expense {
-  id          String          @id @default(cuid())
-  tripId      String
-  category    ExpenseCategory
-  description String
-  quantity    Int?            @default(1)
-  unitCost    Float
-  totalCost   Float
-  isPaid      Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id            String          @id @default(cuid())
+  tripId        String
+  stopId        String?                    // optional: tied to a specific stop
+  invoiceNumber String?         @unique    // e.g. INV-xyz-30290
+  category      ExpenseCategory
+  description   String
+  quantity      Int?            @default(1)
+  unitCost      Float
+  totalCost     Float
+  taxPercent    Float?          @default(0)
+  discount      Float?          @default(0)
+  grandTotal    Float
+  isPaid        Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  trip        Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trip          Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop          Stop?           @relation(fields: [stopId], references: [id], onDelete: SetNull)
 }
 
 // ─── PACKING CHECKLIST ───────────────────────────────────
@@ -222,8 +236,9 @@ model PackingItem {
 model TripNote {
   id        String    @id @default(cuid())
   tripId    String
-  stopId    String?            // null = trip-level note
+  stopId    String?
   scope     NoteScope @default(TRIP)
+  title     String?                        // e.g. "Hotel check-in — Rome"
   content   String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
