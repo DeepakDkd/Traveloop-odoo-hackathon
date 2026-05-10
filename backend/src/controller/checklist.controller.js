@@ -6,174 +6,189 @@ export const getChecklist = async (req, res) => {
   try {
     const { tripId } = req.params;
 
-    const checklist = await prisma.checklist.findUnique({
-      where: { tripId },
-      include: {
-        categories: {
-          orderBy: { order: "asc" },
-          include: {
-            items: { orderBy: { order: "asc" } },
-          },
-        },
+    const items = await prisma.packingItem.findMany({
+      where: {
+        tripId,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
-    if (!checklist) {
-      res.status(404).json({ success: false, message: "Checklist not found." });
-      return;
-    }
+    const totalItems = items.length;
 
-    const totalItems = checklist.categories.reduce(
-      (sum, cat) => sum + cat.items.length, 0
-    );
-    const packedItems = checklist.categories.reduce(
-      (sum, cat) => sum + cat.items.filter((i) => i.isPacked).length, 0
-    );
+    const packedItems = items.filter(
+      (item) => item.isPacked
+    ).length;
 
     res.status(200).json({
       success: true,
       data: {
-        ...checklist,
-        progress: { packed: packedItems, total: totalItems },
+        items,
+        progress: {
+          packed: packedItems,
+          total: totalItems,
+        },
       },
     });
   } catch (error) {
     console.error("[getChecklist] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
 
 export const createChecklist = async (req, res) => {
   try {
-    const { tripId } = req.body;
+    const { tripId, items } = req.body;
 
     if (!tripId) {
-      res.status(400).json({ success: false, errors: ["tripId is required."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["tripId is required."],
+      });
     }
 
-    const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+    const trip = await prisma.trip.findUnique({
+      where: {
+        id: tripId,
+      },
+    });
 
     if (!trip) {
-      res.status(404).json({ success: false, errors: ["Trip not found."] });
-      return;
+      return res.status(404).json({
+        success: false,
+        errors: ["Trip not found."],
+      });
     }
 
-    const existing = await prisma.checklist.findUnique({ where: { tripId } });
-
-    if (existing) {
-      res.status(409).json({ success: false, errors: ["Checklist already exists for this trip."] });
-      return;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        errors: ["items array is required."],
+      });
     }
 
-    const checklist = await prisma.checklist.create({
-      data: { tripId },
-      include: { categories: { include: { items: true } } },
+    const createdItems = await prisma.packingItem.createMany({
+      data: items.map((item) => ({
+        tripId,
+        name: item.name,
+        category: item.category || "OTHER",
+      })),
     });
 
-    res.status(201).json({ success: true, message: "Checklist created.", data: checklist });
+    res.status(201).json({
+      success: true,
+      message: "Checklist created successfully.",
+      data: createdItems,
+    });
   } catch (error) {
     console.error("[createChecklist] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
-  }
-};
 
-export const addCategory = async (req, res) => {
-  try {
-    const { tripId } = req.params;
-    const { name } = req.body;
-
-    if (!name) {
-      res.status(400).json({ success: false, errors: ["name is required."] });
-      return;
-    }
-
-    const checklist = await prisma.checklist.findUnique({ where: { tripId } });
-
-    if (!checklist) {
-      res.status(404).json({ success: false, message: "Checklist not found." });
-      return;
-    }
-
-    const lastCategory = await prisma.checklistCategory.findFirst({
-      where: { checklistId: checklist.id },
-      orderBy: { order: "desc" },
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
     });
-
-    const category = await prisma.checklistCategory.create({
-      data: {
-        name,
-        checklistId: checklist.id,
-        order: lastCategory ? lastCategory.order + 1 : 0,
-      },
-      include: { items: true },
-    });
-
-    res.status(201).json({ success: true, message: "Category added.", data: category });
-  } catch (error) {
-    console.error("[addCategory] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
   }
 };
 
 export const addItem = async (req, res) => {
   try {
-    const { categoryId } = req.params;
-    const { name } = req.body;
+    const { tripId } = req.params;
+
+    const {
+      name,
+      category,
+    } = req.body;
 
     if (!name) {
-      res.status(400).json({ success: false, errors: ["name is required."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["name is required."],
+      });
     }
 
-    const category = await prisma.checklistCategory.findUnique({ where: { id: categoryId } });
-
-    if (!category) {
-      res.status(404).json({ success: false, message: "Category not found." });
-      return;
-    }
-
-    const lastItem = await prisma.checklistItem.findFirst({
-      where: { categoryId },
-      orderBy: { order: "desc" },
-    });
-
-    const item = await prisma.checklistItem.create({
-      data: {
-        name,
-        isPacked: false,
-        categoryId,
-        order: lastItem ? lastItem.order + 1 : 0,
+    const trip = await prisma.trip.findUnique({
+      where: {
+        id: tripId,
       },
     });
 
-    res.status(201).json({ success: true, message: "Item added.", data: item });
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: "Trip not found.",
+      });
+    }
+
+    const item = await prisma.packingItem.create({
+      data: {
+        tripId,
+        name,
+        category: category || "OTHER",
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Item added.",
+      data: item,
+    });
   } catch (error) {
     console.error("[addItem] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
 
 export const toggleItem = async (req, res) => {
   try {
-    const { itemId } = req.params;
+    const { itemIds, isPacked } = req.body;
 
-    const item = await prisma.checklistItem.findUnique({ where: { id: itemId } });
-
-    if (!item) {
-      res.status(404).json({ success: false, message: "Item not found." });
-      return;
+    if (
+      !Array.isArray(itemIds) ||
+      itemIds.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "itemIds array is required",
+      });
     }
 
-    const updated = await prisma.checklistItem.update({
-      where: { id: itemId },
-      data: { isPacked: !item.isPacked },
-    });
+    const updatedItems =
+      await prisma.packingItem.updateMany({
+        where: {
+          id: {
+            in: itemIds,
+          },
+        },
+        data: {
+          isPacked,
+        },
+      });
 
-    res.status(200).json({ success: true, data: updated });
+    res.status(200).json({
+      success: true,
+      message: "Items updated successfully",
+      data: updatedItems,
+    });
   } catch (error) {
     console.error("[toggleItem] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -181,39 +196,37 @@ export const deleteItem = async (req, res) => {
   try {
     const { itemId } = req.params;
 
-    const item = await prisma.checklistItem.findUnique({ where: { id: itemId } });
+    const item = await prisma.packingItem.findUnique({
+      where: {
+        id: itemId,
+      },
+    });
 
     if (!item) {
-      res.status(404).json({ success: false, message: "Item not found." });
-      return;
+      return res.status(404).json({
+        success: false,
+        message: "Item not found.",
+      });
     }
 
-    await prisma.checklistItem.delete({ where: { id: itemId } });
+    await prisma.packingItem.delete({
+      where: {
+        id: itemId,
+      },
+    });
 
-    res.status(200).json({ success: true, message: "Item deleted." });
+    res.status(200).json({
+      success: true,
+      message: "Item deleted.",
+    });
   } catch (error) {
     console.error("[deleteItem] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
-  }
-};
 
-export const deleteCategory = async (req, res) => {
-  try {
-    const { categoryId } = req.params;
-
-    const category = await prisma.checklistCategory.findUnique({ where: { id: categoryId } });
-
-    if (!category) {
-      res.status(404).json({ success: false, message: "Category not found." });
-      return;
-    }
-
-    await prisma.checklistCategory.delete({ where: { id: categoryId } });
-
-    res.status(200).json({ success: true, message: "Category deleted." });
-  } catch (error) {
-    console.error("[deleteCategory] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
 
@@ -221,103 +234,64 @@ export const resetChecklist = async (req, res) => {
   try {
     const { tripId } = req.params;
 
-    const checklist = await prisma.checklist.findUnique({ where: { tripId } });
-
-    if (!checklist) {
-      res.status(404).json({ success: false, message: "Checklist not found." });
-      return;
-    }
-
-    await prisma.checklistItem.updateMany({
-      where: { category: { checklistId: checklist.id } },
-      data: { isPacked: false },
-    });
-
-    res.status(200).json({ success: true, message: "Checklist reset. All items marked as unpacked." });
-  } catch (error) {
-    console.error("[resetChecklist] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
-  }
-};
-
-export const shareChecklist = async (req, res) => {
-  try {
-    const { tripId } = req.params;
-
-    const checklist = await prisma.checklist.findUnique({
-      where: { tripId },
-      include: {
-        categories: {
-          orderBy: { order: "asc" },
-          include: { items: { orderBy: { order: "asc" } } },
-        },
-        trip: { select: { place: true, startDate: true, endDate: true } },
+    await prisma.packingItem.updateMany({
+      where: {
+        tripId,
+      },
+      data: {
+        isPacked: false,
       },
     });
-
-    if (!checklist) {
-      res.status(404).json({ success: false, message: "Checklist not found." });
-      return;
-    }
-
-    const totalItems = checklist.categories.reduce((sum, cat) => sum + cat.items.length, 0);
-    const packedItems = checklist.categories.reduce(
-      (sum, cat) => sum + cat.items.filter((i) => i.isPacked).length, 0
-    );
-
-    const shareToken = Buffer.from(`${tripId}:${Date.now()}`).toString("base64url");
-
-    const shareableLink = `${process.env.APP_BASE_URL}/shared/checklist/${shareToken}`;
 
     res.status(200).json({
       success: true,
-      data: {
-        shareableLink,
-        summary: {
-          trip: checklist.trip,
-          progress: { packed: packedItems, total: totalItems },
-          categories: checklist.categories.map((cat) => ({
-            name: cat.name,
-            items: cat.items.map((i) => ({ name: i.name, isPacked: i.isPacked })),
-          })),
-        },
-      },
+      message: "Checklist reset successfully.",
     });
   } catch (error) {
-    console.error("[shareChecklist] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+    console.error("[resetChecklist] Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
 
 export const searchItems = async (req, res) => {
   try {
     const { tripId } = req.params;
+
     const { q } = req.query;
 
     if (!q) {
-      res.status(400).json({ success: false, errors: ["Search query (q) is required."] });
-      return;
+      return res.status(400).json({
+        success: false,
+        errors: ["Search query is required."],
+      });
     }
 
-    const checklist = await prisma.checklist.findUnique({ where: { tripId } });
-
-    if (!checklist) {
-      res.status(404).json({ success: false, message: "Checklist not found." });
-      return;
-    }
-
-    const items = await prisma.checklistItem.findMany({
+    const items = await prisma.packingItem.findMany({
       where: {
-        name: { contains: q, mode: "insensitive" },
-        category: { checklistId: checklist.id },
+        tripId,
+        name: {
+          contains: q,
+          mode: "insensitive",
+        },
       },
-      include: { category: { select: { name: true } } },
     });
 
-    res.status(200).json({ success: true, data: items });
+    res.status(200).json({
+      success: true,
+      data: items,
+    });
   } catch (error) {
     console.error("[searchItems] Error:", error);
-    res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
   }
 };
-

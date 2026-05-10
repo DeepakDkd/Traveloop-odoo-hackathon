@@ -68,7 +68,7 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         noValidate
       >
-        <div className="overflow-hidden rounded-full border-2 border-slate-300 bg-slate-50">
+        <div className="overflow-hidden rounded-full border-2 border-black/10 bg-white">
           <Image
             src="/dummy-profile.svg"
             alt="Dummy profile"
@@ -99,7 +99,7 @@ export default function LoginPage() {
         </div>
 
         {statusMessage ? (
-          <div className="w-full rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="w-full rounded-xl bg-emerald-50 px-4 py-3 text-sm text-[#10b981]">
             {statusMessage}
           </div>
         ) : null}
@@ -107,18 +107,17 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="app-primary-button rounded-xl px-6 py-3 text-sm font-medium shadow-[0_4px_16px_rgba(13,110,110,0.22)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "Logging in..." : "Login Button"}
         </button>
 
-        <div className="text-center text-sm text-slate-500">
-          
+        <div className="text-center text-sm text-[#6b7280]">
           <p>
             If not a user then{" "}
             <Link
               href="/register"
-              className="font-medium text-slate-700 underline underline-offset-4"
+              className="font-medium text-[#0d6e6e] underline underline-offset-4"
             >
               register
             </Link>
@@ -149,11 +148,11 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={label}
-        className={`register-input w-full rounded-[0.9rem] px-5 py-4 text-base text-slate-700 outline-none ${
-          error ? "border-rose-400" : ""
+        className={`register-input w-full rounded-[0.9rem] px-5 py-4 text-base text-[#1a1a2e] outline-none ${
+          error ? "border-[#ef4444]" : ""
         }`}
       />
-      {error ? <p className="mt-1 text-xs text-rose-500">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs text-[#ef4444]">{error}</p> : null}
     </div>
   );
 }

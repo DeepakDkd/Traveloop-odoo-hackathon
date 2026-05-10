@@ -141,12 +141,21 @@ const previousTrips = [
   },
 ];
 
-const navItems = [
+const mobileNavItems = [
   { id: "dashboard", label: "Home", icon: Home },
   { id: "my-trips", label: "My Trips", icon: Map },
   { id: "search", label: "Search", icon: Search },
   { id: "community", label: "Community", icon: Users },
   { id: "profile", label: "Profile", icon: User },
+];
+
+const sidebarItems = [
+  { label: "Dashboard", href: "/", icon: Home, active: true },
+  { label: "Register", href: "/register", icon: UserPlus },
+  { label: "Login", href: "/login", icon: LogIn },
+  { label: "Search", href: "#", icon: Search, disabled: true },
+  { label: "Community", href: "#", icon: Users, disabled: true },
+  { label: "Settings", href: "#", icon: Settings, disabled: true },
 ];
 
 export default function HomePage() {
@@ -180,9 +189,64 @@ export default function HomePage() {
         </div>
       </header>
 
+      <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-72 border-r border-black/10 bg-white lg:block">
+        <div className="flex h-full flex-col px-4 py-6">
+          <div className="rounded-2xl bg-[#f8f9fa] p-4">
+            <p className="text-sm font-semibold text-[#1a1a2e]">
+              Quick Navigation
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#6b7280]">
+              Switch between available pages from one side panel.
+            </p>
+          </div>
+
+          {/* <nav className="mt-6 space-y-2">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+
+              if (item.disabled) {
+                return (
+                  <div
+                    key={item.label}
+                    className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[#9ca3af]"
+                  >
+                    <Icon size={18} />
+                    <span>{item.label}</span>
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                    item.active
+                      ? "bg-[#0d6e6e] text-white"
+                      : "text-[#1a1a2e] hover:bg-[#e5e7eb]"
+                  }`}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav> */}
+
+          <div className="mt-auto rounded-2xl border border-black/10 bg-[#f8f9fa] p-4">
+            <p className="text-sm font-semibold text-[#1a1a2e]">
+              Current screen
+            </p>
+            <p className="mt-2 text-sm text-[#6b7280]">
+              Home dashboard is active. Register and Login are ready to open.
+            </p>
+          </div>
+        </div>
+      </aside>
+
       <div className="h-full overflow-y-auto pt-16">
-        <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col px-4 py-8 pb-24 sm:px-6 lg:px-8 lg:pb-8">
-          <div className="space-y-8">
+        <main className="min-h-[calc(100vh-4rem)] px-4 py-8 pb-24 sm:px-6 lg:ml-72 lg:px-8 lg:pb-8">
+          <div className="mx-auto max-w-7xl space-y-8">
             <section className="relative h-64 overflow-hidden rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.1)] sm:h-80">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -192,7 +256,7 @@ export default function HomePage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-                <h1 className="text-[28px] font-bold tracking-tight text-white sm:text-[36px]">
+                <h1 style={{color:"white"}} className="text-[28px] font-bold tracking-tight  sm:text-[36px]">
                   Discover Your Next Adventure
                 </h1>
                 <p className="mt-2 text-base text-white/90">
@@ -249,7 +313,7 @@ export default function HomePage() {
 
       <Link
         href="/register"
-        className="group fixed bottom-20 right-6 z-40 flex items-center gap-2 rounded-full bg-[#f59e0b] px-4 py-4 text-[#1a1a2e] shadow-[0_4px_16px_rgba(245,158,11,0.4)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(245,158,11,0.5)] md:bottom-6"
+        className="group fixed bottom-20 right-6 z-40 flex items-center  rounded-full bg-[#f59e0b] px-4 py-4 text-[#1a1a2e] shadow-[0_4px_16px_rgba(245,158,11,0.4)] transition-all duration-200 hover:scale-105 hover:shadow-[0_6px_20px_rgba(245,158,11,0.5)] md:bottom-6"
       >
         <Plus size={24} />
         <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-300 group-hover:max-w-xs">
@@ -259,7 +323,7 @@ export default function HomePage() {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-white md:hidden">
         <div className="flex h-16 items-center justify-around">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = item.id === "dashboard";
 
