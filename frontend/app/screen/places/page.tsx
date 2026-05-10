@@ -178,7 +178,6 @@ export default function Home() {
     setPlaces([]);
 
     try {
-      console.log("Searching city:", place);
       // ── Geocoding ───────────────────────
       const geoResponse =
         await axios.get(
@@ -191,6 +190,7 @@ export default function Home() {
             },
           }
         );
+      console.log("Geo Response:", geoResponse.data);
 
       const features =
         geoResponse.data.features;
@@ -236,6 +236,7 @@ export default function Home() {
             },
           }
         );
+      console.log("Places Response:", placesResponse.data);
 
       const formattedPlaces =
         placesResponse.data.features
@@ -320,8 +321,6 @@ export default function Home() {
             };
           })
           .filter(Boolean);
-
-      console.log("Found places:", formattedPlaces);
 
       setPlaces(formattedPlaces);
 
