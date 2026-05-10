@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum TripStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+}
+
+enum ActivityCategory {
+  SIGHTSEEING
+  FOOD
+  ADVENTURE
+  CULTURE
+  SHOPPING
+  TRANSPORT
+  OTHER
+}
+
+enum ExpenseCategory {
+  TRANSPORT
+  STAY
+  ACTIVITY
+  MEAL
+  OTHER
+}
+
+enum PackingCategory {
+  DOCUMENTS
+  CLOTHING
+  ELECTRONICS
+  TOILETRIES
+  MEDICINE
+  OTHER
+}
+
+enum NoteScope {
+  TRIP
+  STOP
+}
+
+// ─── USER ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  firstName         String?
+  lastName         String?
+  email        String   @unique
+  passwordHash String
+  phone String
+  photo        String?
+  language     String?  @default("en")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  city String
+  country String
+  addInfo String?
+
+  trips        Trip[]
+  savedCities  SavedCity[]
+}
+
+// ─── CITY (master list) ──────────────────────────────────
+
+model City {
+  id          String  @id @default(cuid())
+  name        String
+  country     String
+  region      String?
+  costIndex   Float?         // relative cost score
+  popularity  Int?           @default(0)
+  imageUrl    String?
+
+  stops       Stop[]
+  savedBy     SavedCity[]
+  activities  Activity[]
+}
+
+model SavedCity {
+  id        String   @id @default(cuid())
+  userId    String
+  cityId    String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cityId])
+}
+
+// ─── TRIP ────────────────────────────────────────────────
+
+model Trip {
+  id          String     @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  coverImage  String?
+  startDate   DateTime
+  endDate     DateTime
+  status      TripStatus @default(UPCOMING)
+  isPublic    Boolean    @default(false)
+  shareToken  String?    @unique  // for public URL
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stops       Stop[]
+  budget      Budget?
+  expenses    Expense[]
+  packingList PackingItem[]
+  notes       TripNote[]
+  community   CommunityPost?
+}
+
+// ─── STOP (city within a trip) ───────────────────────────
+
+model Stop {
+  id         String   @id @default(cuid())
+  tripId     String
+  cityId     String
+  order      Int               // for reordering stops
+  startDate  DateTime
+  endDate    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city       City     @relation(fields: [cityId], references: [id])
+  activities StopActivity[]
+  notes      TripNote[]
+}
+
+// ─── ACTIVITY (master catalog) ───────────────────────────
+
+model Activity {
+  id          String           @id @default(cuid())
+  cityId      String
+  name        String
+  description String?
+  category    ActivityCategory @default(OTHER)
+  cost        Float?
+  duration    Int?             // in minutes
+  imageUrl    String?
+
+  city        City             @relation(fields: [cityId], references: [id])
+  stops       StopActivity[]
+}
+
+// ─── STOP <-> ACTIVITY (join table) ──────────────────────
+
+model StopActivity {
+  id          String   @id @default(cuid())
+  stopId      String
+  activityId  String
+  scheduledAt DateTime?
+  notes       String?
+
+  stop        Stop     @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  activity    Activity @relation(fields: [activityId], references: [id])
+
+  @@unique([stopId, activityId])
+}
+
+// ─── BUDGET ──────────────────────────────────────────────
+
+model Budget {
+  id              String   @id @default(cuid())
+  tripId          String   @unique
+  totalBudget     Float
+  transportBudget Float?   @default(0)
+  stayBudget      Float?   @default(0)
+  activityBudget  Float?   @default(0)
+  mealBudget      Float?   @default(0)
+  otherBudget     Float?   @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  trip            Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+// ─── EXPENSE (invoice line items) ────────────────────────
+
+model Expense {
+  id          String          @id @default(cuid())
+  tripId      String
+  category    ExpenseCategory
+  description String
+  quantity    Int?            @default(1)
+  unitCost    Float
+  totalCost   Float
+  isPaid      Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  trip        Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+// ─── PACKING CHECKLIST ───────────────────────────────────
+
+model PackingItem {
+  id        String          @id @default(cuid())
+  tripId    String
+  name      String
+  category  PackingCategory @default(OTHER)
+  isPacked  Boolean         @default(false)
+  createdAt DateTime        @default(now())
+
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+// ─── TRIP NOTES / JOURNAL ────────────────────────────────
+
+model TripNote {
+  id        String    @id @default(cuid())
+  tripId    String
+  stopId    String?            // null = trip-level note
+  scope     NoteScope @default(TRIP)
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  trip      Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stop      Stop?     @relation(fields: [stopId], references: [id], onDelete: SetNull)
+}
+
+// ─── COMMUNITY / PUBLIC SHARING ──────────────────────────
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  tripId    String   @unique
+  caption   String?
+  likes     Int      @default(0)
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
