@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import type { ChangeEvent, FormEvent, HTMLInputTypeAttribute } from "react";
 
@@ -92,30 +94,22 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="flex w-full max-w-[560px] flex-col gap-5">
+    <div className="flex w-full max-w-[760px] flex-col gap-5">
       <form
         className="register-card flex w-full flex-col items-center gap-8 rounded-[1.5rem] px-6 py-8 sm:px-10 sm:py-10"
         onSubmit={handleSubmit}
         noValidate
       >
-        <label className="relative flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
-          {values.photoDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={values.photoDataUrl}
-              alt="Profile preview"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <span>Photo</span>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={handlePhotoChange}
+        <div className="overflow-hidden rounded-full border-2 border-slate-300 bg-slate-50">
+          <Image
+            src="/dummy-profile.svg"
+            alt="Dummy profile"
+            width={112}
+            height={112}
+            className="h-28 w-28"
+            priority
           />
-        </label>
+        </div>
 
         <div className="register-inner w-full rounded-[1.25rem] p-4 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -184,6 +178,19 @@ export function RegisterForm() {
         >
           {isSubmitting ? "Registering..." : "Register Users"}
         </button>
+
+        <div className="text-center text-sm text-slate-500">
+          
+          <p>
+            If you already have an account{" "}
+            <Link
+              href="/login"
+              className="font-medium text-slate-700 underline underline-offset-4"
+            >
+              Login
+            </Link>
+          </p>
+        </div>
       </form>
     </div>
   );
@@ -211,9 +218,8 @@ function FormField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={label}
-        className={`register-input w-full rounded-[0.9rem] px-4 py-3 text-base text-slate-700 outline-none ${
-          error ? "border-rose-400" : ""
-        }`}
+        className={`register-input w-full rounded-[0.9rem] px-4 py-3 text-base text-slate-700 outline-none ${error ? "border-rose-400" : ""
+          }`}
       />
       {error ? <p className="mt-1 text-xs text-rose-500">{error}</p> : null}
     </div>
@@ -240,9 +246,8 @@ function TextAreaField({
         onChange={(event) => onChange(event.target.value)}
         rows={6}
         placeholder={label}
-        className={`register-input min-h-40 w-full rounded-[1rem] px-4 py-4 text-base text-slate-700 outline-none ${
-          error ? "border-rose-400" : ""
-        }`}
+        className={`register-input min-h-40 w-full rounded-[1rem] px-4 py-4 text-base text-slate-700 outline-none ${error ? "border-rose-400" : ""
+          }`}
       />
       {error ? <p className="mt-1 text-xs text-rose-500">{error}</p> : null}
     </div>

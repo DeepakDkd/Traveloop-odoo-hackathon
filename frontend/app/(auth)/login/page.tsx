@@ -1,0 +1,174 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { useState } from "react";
+import type { FormEvent } from "react";
+
+type LoginValues = {
+  username: string;
+  password: string;
+};
+
+type LoginErrors = Partial<Record<keyof LoginValues, string>>;
+
+const initialValues: LoginValues = {
+  username: "",
+  password: "",
+};
+
+export default function LoginPage() {
+  const [values, setValues] = useState<LoginValues>(initialValues);
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  function updateField<Key extends keyof LoginValues>(
+    field: Key,
+    value: LoginValues[Key],
+  ) {
+    setValues((current) => ({
+      ...current,
+      [field]: value,
+    }));
+
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+    }));
+
+    setStatusMessage("");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const nextErrors = validate(values);
+    setErrors(nextErrors);
+    setStatusMessage("");
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await wait(400);
+      console.log("Login form data:", values);
+      setStatusMessage("Login data logged in the console.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="w-full max-w-[520px]">
+      <form
+        className="register-card flex w-full flex-col items-center gap-8 rounded-[1.5rem] px-6 py-10 sm:px-10 sm:py-12"
+        onSubmit={handleSubmit}
+        noValidate
+      >
+        <div className="overflow-hidden rounded-full border-2 border-slate-300 bg-slate-50">
+          <Image
+            src="/dummy-profile.svg"
+            alt="Dummy profile"
+            width={112}
+            height={112}
+            className="h-28 w-28"
+            priority
+          />
+        </div>
+
+        <div className="register-inner w-full rounded-[1.25rem] p-5 sm:p-6">
+          <div className="space-y-6">
+            <Field
+              label="Username"
+              value={values.username}
+              onChange={(value) => updateField("username", value)}
+              error={errors.username}
+            />
+
+            <Field
+              label="Password"
+              type="password"
+              value={values.password}
+              onChange={(value) => updateField("password", value)}
+              error={errors.password}
+            />
+          </div>
+        </div>
+
+        {statusMessage ? (
+          <div className="w-full rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {statusMessage}
+          </div>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? "Logging in..." : "Login Button"}
+        </button>
+
+        <div className="text-center text-sm text-slate-500">
+          
+          <p>
+            If not a user then{" "}
+            <Link
+              href="/register"
+              className="font-medium text-slate-700 underline underline-offset-4"
+            >
+              register
+            </Link>
+          </p>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  error,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  type?: "text" | "password";
+}) {
+  return (
+    <div>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={label}
+        className={`register-input w-full rounded-[0.9rem] px-5 py-4 text-base text-slate-700 outline-none ${
+          error ? "border-rose-400" : ""
+        }`}
+      />
+      {error ? <p className="mt-1 text-xs text-rose-500">{error}</p> : null}
+    </div>
+  );
+}
+
+function validate(values: LoginValues) {
+  const errors: LoginErrors = {};
+
+  if (!values.username.trim()) errors.username = "Required";
+  if (!values.password.trim()) errors.password = "Required";
+
+  return errors;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
