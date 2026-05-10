@@ -10,6 +10,7 @@ import {
 } from "../controller/trip.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
+import noteRoutes from "./note.route.js";
 
 const router = express.Router();
 
@@ -22,5 +23,7 @@ router.get("/suggestions", getTripSuggestions);
 router.get("/user/all", getUserTrips);
 
 router.get("/:id", getTripById);
+
+router.use("/:tripId/notes", noteRoutes);
 
 export default router;
