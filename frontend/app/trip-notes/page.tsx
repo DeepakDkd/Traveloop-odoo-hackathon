@@ -224,7 +224,7 @@ const NotesScreen = () => {
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="icon-sm"
+                                            size="sm"
                                             onClick={closeModal}
                                             className="text-slate-500 hover:bg-white hover:text-slate-900"
                                         >
@@ -280,7 +280,7 @@ const NotesScreen = () => {
                                     <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
                                         <Button
                                             type="button"
-                                            variant="outline"
+                                            variant="secondary"
                                             onClick={closeModal}
                                             className="h-11 rounded-xl border-slate-300 px-5 text-slate-700"
                                         >
