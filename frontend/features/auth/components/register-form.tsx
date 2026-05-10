@@ -1,9 +1,11 @@
 "use client";
 
+import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { FormEvent, HTMLInputTypeAttribute } from "react";
+import { useRouter } from "next/navigation";
 
 type RegisterFormValues = {
   firstName: string;
@@ -12,10 +14,26 @@ type RegisterFormValues = {
   phoneNumber: string;
   city: string;
   country: string;
+  password: string;
+  confirmPassword: string;
   additionalInformation: string;
 };
 
 type RegisterErrors = Partial<Record<keyof RegisterFormValues, string>>;
+
+type RegisterResponse = {
+  success: boolean;
+  message: string;
+  user?: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+};
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
 
 const initialValues: RegisterFormValues = {
   firstName: "",
@@ -24,14 +42,18 @@ const initialValues: RegisterFormValues = {
   phoneNumber: "",
   city: "",
   country: "",
+  password: "",
+  confirmPassword: "",
   additionalInformation: "",
 };
 
 export function RegisterForm() {
+  const router = useRouter();
   const [values, setValues] = useState<RegisterFormValues>(initialValues);
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [statusType, setStatusType] = useState<"success" | "error" | "">("");
 
   function updateField<Key extends keyof RegisterFormValues>(
     field: Key,
@@ -48,6 +70,7 @@ export function RegisterForm() {
     }));
 
     setStatusMessage("");
+    setStatusType("");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -56,6 +79,7 @@ export function RegisterForm() {
     const nextErrors = validate(values);
     setErrors(nextErrors);
     setStatusMessage("");
+    setStatusType("");
 
     if (Object.keys(nextErrors).length > 0) {
       return;
@@ -63,10 +87,40 @@ export function RegisterForm() {
 
     try {
       setIsSubmitting(true);
-      await wait(500);
-      console.log("Registration form data:", values);
+
+      const response = await axios.post<RegisterResponse>(
+        `${API_BASE_URL}/api/auth/register`,
+        {
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          email: values.email.trim(),
+          phoneNumber: values.phoneNumber.trim(),
+          city: values.city.trim(),
+          country: values.country.trim(),
+          password: values.password,
+          additionalInfo: values.additionalInformation.trim(),
+        },
+        {
+          withCredentials: true,
+        },
+      );
+
       setValues(initialValues);
-      setStatusMessage("Form submitted. Check the console for the data.");
+      setStatusMessage(
+        response.data.message || "Registration successful. Please log in.",
+      );
+      setStatusType("success");
+
+      setTimeout(() => {
+        router.push("/login");
+      }, 800);
+    } catch (error) {
+      const message = axios.isAxiosError<RegisterResponse>(error)
+        ? error.response?.data?.message || "Unable to register right now"
+        : "Something went wrong while registering";
+
+      setStatusMessage(message);
+      setStatusType("error");
     } finally {
       setIsSubmitting(false);
     }
@@ -130,21 +184,37 @@ export function RegisterForm() {
               onChange={(value) => updateField("country", value)}
               error={errors.country}
             />
+            <FormField
+              label="Password"
+              type="password"
+              value={values.password}
+              onChange={(value) => updateField("password", value)}
+              error={errors.password}
+            />
+            <FormField
+              label="Confirm Password"
+              type="password"
+              value={values.confirmPassword}
+              onChange={(value) => updateField("confirmPassword", value)}
+              error={errors.confirmPassword}
+            />
           </div>
 
           <div className="mt-4">
             <TextAreaField
               label="Additional Information ...."
               value={values.additionalInformation}
-              onChange={(value) =>
-                updateField("additionalInformation", value)
-              }
+              onChange={(value) => updateField("additionalInformation", value)}
               error={errors.additionalInformation}
             />
           </div>
         </div>
 
-        {statusMessage ? <StatusMessage>{statusMessage}</StatusMessage> : null}
+        {statusMessage ? (
+          <StatusMessage type={statusType || "success"}>
+            {statusMessage}
+          </StatusMessage>
+        ) : null}
 
         <button
           type="submit"
@@ -230,9 +300,21 @@ function TextAreaField({
   );
 }
 
-function StatusMessage({ children }: { children: string }) {
+function StatusMessage({
+  children,
+  type,
+}: {
+  children: string;
+  type: "success" | "error";
+}) {
   return (
-    <div className="w-full rounded-xl bg-emerald-50 px-4 py-3 text-sm text-[#10b981]">
+    <div
+      className={`w-full rounded-xl px-4 py-3 text-sm ${
+        type === "error"
+          ? "bg-red-50 text-red-600"
+          : "bg-emerald-50 text-[#10b981]"
+      }`}
+    >
       {children}
     </div>
   );
@@ -254,11 +336,17 @@ function validate(values: RegisterFormValues) {
   if (!values.city.trim()) errors.city = "Required";
   if (!values.country.trim()) errors.country = "Required";
 
-  return errors;
-}
+  if (!values.password.trim()) {
+    errors.password = "Required";
+  } else if (values.password.length < 6) {
+    errors.password = "Minimum 6 characters";
+  }
 
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  if (!values.confirmPassword.trim()) {
+    errors.confirmPassword = "Required";
+  } else if (values.confirmPassword !== values.password) {
+    errors.confirmPassword = "Passwords do not match";
+  }
+
+  return errors;
 }

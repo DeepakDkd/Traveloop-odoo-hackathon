@@ -18,16 +18,24 @@ export const registerUser = async (req, res) => {
       country,
       password,
       additionalInfo,
+      additionalInformation,
     } = req.body;
     const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedFirstName = firstName?.trim();
+    const normalizedLastName = lastName?.trim();
+    const normalizedPhoneNumber = phoneNumber?.trim();
+    const normalizedCity = city?.trim();
+    const normalizedCountry = country?.trim();
+    const normalizedAdditionalInfo =
+      additionalInfo?.trim() || additionalInformation?.trim() || undefined;
 
     if (
-      !firstName ||
-      !lastName ||
+      !normalizedFirstName ||
+      !normalizedLastName ||
       !normalizedEmail ||
-      !phoneNumber ||
-      !city ||
-      !country ||
+      !normalizedPhoneNumber ||
+      !normalizedCity ||
+      !normalizedCountry ||
       !password
     ) {
       return res.status(400).json({
@@ -59,13 +67,13 @@ export const registerUser = async (req, res) => {
 
     const newUser = await prisma.user.create({
       data: {
-        firstName,
-        lastName,
+        firstName: normalizedFirstName,
+        lastName: normalizedLastName,
         email: normalizedEmail,
-        phone: phoneNumber,
-        city,
-        country,
-        addInfo: additionalInfo,
+        phone: normalizedPhoneNumber,
+        city: normalizedCity,
+        country: normalizedCountry,
+        addInfo: normalizedAdditionalInfo,
         photo: profilePhoto || undefined,
         passwordHash: hashedPassword,
       },
