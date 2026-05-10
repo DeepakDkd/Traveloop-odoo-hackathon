@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import type { ChangeEvent, FormEvent, HTMLInputTypeAttribute } from "react";
+import type { FormEvent, HTMLInputTypeAttribute } from "react";
 
 type RegisterFormValues = {
   firstName: string;
@@ -13,7 +13,6 @@ type RegisterFormValues = {
   city: string;
   country: string;
   additionalInformation: string;
-  photoDataUrl: string;
 };
 
 type RegisterErrors = Partial<Record<keyof RegisterFormValues, string>>;
@@ -26,13 +25,11 @@ const initialValues: RegisterFormValues = {
   city: "",
   country: "",
   additionalInformation: "",
-  photoDataUrl: "",
 };
 
 export function RegisterForm() {
   const [values, setValues] = useState<RegisterFormValues>(initialValues);
   const [errors, setErrors] = useState<RegisterErrors>({});
-  const [selectedFileName, setSelectedFileName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -53,23 +50,6 @@ export function RegisterForm() {
     setStatusMessage("");
   }
 
-  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    setSelectedFileName(file?.name ?? "");
-
-    if (!file) {
-      updateField("photoDataUrl", "");
-      return;
-    }
-
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      updateField("photoDataUrl", dataUrl);
-    } catch {
-      setStatusMessage("Could not read selected image.");
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -86,7 +66,6 @@ export function RegisterForm() {
       await wait(500);
       console.log("Registration form data:", values);
       setValues(initialValues);
-      setSelectedFileName("");
       setStatusMessage("Form submitted. Check the console for the data.");
     } finally {
       setIsSubmitting(false);
@@ -164,10 +143,6 @@ export function RegisterForm() {
             />
           </div>
         </div>
-
-        {selectedFileName ? (
-          <p className="text-sm text-slate-500">{selectedFileName}</p>
-        ) : null}
 
         {statusMessage ? <StatusMessage>{statusMessage}</StatusMessage> : null}
 
@@ -279,15 +254,6 @@ function validate(values: RegisterFormValues) {
   if (!values.country.trim()) errors.country = "Required";
 
   return errors;
-}
-
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("read failed"));
-    reader.readAsDataURL(file);
-  });
 }
 
 function wait(ms: number) {
