@@ -1,0 +1,129 @@
+{
+  "stops": {
+    "addStop": {
+      "method": "POST",
+      "url": "/api/trips/:tripId/stops",
+      "body": {
+        "cityId": "city_id",
+        "startDate": "2026-06-01T00:00:00.000Z",
+        "endDate": "2026-06-03T00:00:00.000Z",
+        "order": 0,
+        "notes": "Arrive and check in."
+      }
+    },
+    "reorderStops": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/stops/reorder",
+      "body": {
+        "stops": [
+          {
+            "stopId": "stop_id_1",
+            "order": 0
+          },
+          {
+            "stopId": "stop_id_2",
+            "order": 1
+          }
+        ]
+      }
+    }
+  },
+  "activities": {
+    "search": {
+      "method": "GET",
+      "url": "/api/activities/search?q=museum&cityId=:cityId&category=CULTURE"
+    },
+    "addToStop": {
+      "method": "POST",
+      "url": "/api/stops/:stopId/activities",
+      "body": {
+        "activityId": "activity_id",
+        "scheduledAt": "2026-06-02T10:00:00.000Z",
+        "notes": "Book tickets early."
+      }
+    },
+    "createAndAddToStop": {
+      "method": "POST",
+      "url": "/api/stops/:stopId/activities",
+      "body": {
+        "name": "Food walk",
+        "description": "Local market and street food tour",
+        "category": "FOOD",
+        "cost": 35,
+        "duration": 120,
+        "scheduledAt": "2026-06-02T18:00:00.000Z"
+      }
+    }
+  },
+  "budget": {
+    "create": {
+      "method": "POST",
+      "url": "/api/trips/:tripId/budget",
+      "body": {
+        "totalBudget": 1200,
+        "transportBudget": 300,
+        "stayBudget": 500,
+        "activityBudget": 250,
+        "mealBudget": 120,
+        "otherBudget": 30,
+        "currency": "INR"
+      }
+    }
+  },
+  "expenses": {
+    "create": {
+      "method": "POST",
+      "url": "/api/trips/:tripId/expenses",
+      "body": {
+        "stopId": "stop_id",
+        "category": "MEAL",
+        "title": "Dinner",
+        "amount": 42,
+        "quantity": 1,
+        "taxPercent": 5,
+        "discount": 0,
+        "isPaid": true
+      }
+    }
+  },
+  "community": {
+    "publish": {
+      "method": "POST",
+      "url": "/api/community/:tripId/publish",
+      "body": {
+        "caption": "Three days across old streets, food spots, and museums."
+      }
+    }
+  },
+  "profile": {
+    "update": {
+      "method": "PATCH",
+      "url": "/api/users/me",
+      "body": {
+        "firstName": "Aarav",
+        "lastName": "Shah",
+        "phone": "+919999999999",
+        "language": "en",
+        "city": "Mumbai",
+        "country": "India",
+        "addInfo": "Budget traveler"
+      }
+    },
+    "photoUpload": {
+      "method": "PATCH",
+      "url": "/api/users/photo",
+      "formData": {
+        "photo": "image file"
+      }
+    }
+  },
+  "tripCover": {
+    "upload": {
+      "method": "PATCH",
+      "url": "/api/trips/:tripId/cover",
+      "formData": {
+        "coverImage": "image file"
+      }
+    }
+  }
+}
