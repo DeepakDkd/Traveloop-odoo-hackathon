@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { toast } from "sonner";
+import { apiRequest } from "@/lib/api";
+import { useAppContext } from "@/lib/context";
 
 type LoginValues = {
   username: string;
@@ -18,6 +22,8 @@ const initialValues: LoginValues = {
 };
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { refreshUser } = useAppContext();
   const [values, setValues] = useState<LoginValues>(initialValues);
   const [errors, setErrors] = useState<LoginErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,9 +59,20 @@ export default function LoginPage() {
 
     try {
       setIsSubmitting(true);
-      await wait(400);
-      console.log("Login form data:", values);
-      setStatusMessage("Login data logged in the console.");
+      await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: {
+          email: values.username,
+          password: values.password,
+        },
+      });
+      await refreshUser();
+      toast.success("Welcome back");
+      router.push("/");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Login failed";
+      setStatusMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -82,7 +99,7 @@ export default function LoginPage() {
         <div className="register-inner w-full rounded-[1.25rem] p-5 sm:p-6">
           <div className="space-y-6">
             <Field
-              label="Username"
+              label="Email"
               value={values.username}
               onChange={(value) => updateField("username", value)}
               error={errors.username}
@@ -164,10 +181,4 @@ function validate(values: LoginValues) {
   if (!values.password.trim()) errors.password = "Required";
 
   return errors;
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }

@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Calendar,
+  CheckSquare,
+  FileText,
   Home,
   LogIn,
   Map,
@@ -37,21 +39,18 @@ export const sidebarSections: AppNavigationSection[] = [
     items: [
       { label: "Dashboard", href: "/", icon: Home },
       { label: "Create Trip", href: "/create-trip", icon: Plane },
-      { label: "My Trips", href: "/my-trips", icon: Map, disabled: true },
-      {
-        label: "Trip Itinerary",
-        href: "/trip-itinerary",
-        icon: Calendar,
-        disabled: true,
-      },
-      { label: "Budget", href: "/budget", icon: Wallet, disabled: true },
+      { label: "My Trips", href: "/my-trips", icon: Map },
+      { label: "Trip Itinerary", href: "/trip-itinerary", icon: Calendar },
+      { label: "Budget", href: "/trip-budget", icon: Wallet },
+      { label: "Checklist", href: "/packing-checklist", icon: CheckSquare },
+      { label: "Expenses", href: "/expenses", icon: FileText },
     ],
   },
   {
     title: "Explore",
     items: [
-      { label: "Search", href: "/search", icon: Search, disabled: true },
-      { label: "Community", href: "/community", icon: Users, disabled: true },
+      { label: "Search", href: "/search", icon: Search },
+      { label: "Community", href: "/community", icon: Users },
     ],
   },
   {
@@ -59,7 +58,8 @@ export const sidebarSections: AppNavigationSection[] = [
     items: [
       { label: "Register", href: "/register", icon: UserPlus },
       { label: "Login", href: "/login", icon: LogIn },
-      { label: "Profile", href: "/profile", icon: User, disabled: true },
+      { label: "Profile", href: "/profile", icon: User },
+      { label: "Notes", href: "/trip-notes", icon: FileText },
     ],
   },
 ];

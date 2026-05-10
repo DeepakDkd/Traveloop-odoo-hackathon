@@ -2,14 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent, HTMLInputTypeAttribute } from "react";
+import { toast } from "sonner";
+import { apiRequest } from "@/lib/api";
+import { useAppContext } from "@/lib/context";
 
 type RegisterFormValues = {
   firstName: string;
   lastName: string;
   email: string;
   phoneNumber: string;
+  password: string;
   city: string;
   country: string;
   additionalInformation: string;
@@ -22,16 +27,20 @@ const initialValues: RegisterFormValues = {
   lastName: "",
   email: "",
   phoneNumber: "",
+  password: "",
   city: "",
   country: "",
   additionalInformation: "",
 };
 
 export function RegisterForm() {
+  const router = useRouter();
+  const { refreshUser } = useAppContext();
   const [values, setValues] = useState<RegisterFormValues>(initialValues);
   const [errors, setErrors] = useState<RegisterErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
 
   function updateField<Key extends keyof RegisterFormValues>(
     field: Key,
@@ -63,10 +72,29 @@ export function RegisterForm() {
 
     try {
       setIsSubmitting(true);
-      await wait(500);
-      console.log("Registration form data:", values);
-      setValues(initialValues);
-      setStatusMessage("Form submitted. Check the console for the data.");
+      const formData = new FormData();
+      formData.append("firstName", values.firstName);
+      formData.append("lastName", values.lastName);
+      formData.append("email", values.email);
+      formData.append("phoneNumber", values.phoneNumber);
+      formData.append("password", values.password);
+      formData.append("city", values.city);
+      formData.append("country", values.country);
+      formData.append("additionalInfo", values.additionalInformation);
+      if (photo) formData.append("photo", photo);
+
+      await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: formData,
+      });
+      await refreshUser();
+      toast.success("Account created");
+      setStatusMessage("Account created. Taking you to your dashboard...");
+      router.push("/");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Registration failed";
+      setStatusMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -79,16 +107,22 @@ export function RegisterForm() {
         onSubmit={handleSubmit}
         noValidate
       >
-        <div className="overflow-hidden rounded-full border-2 border-black/10 bg-white">
+        <label className="cursor-pointer overflow-hidden rounded-full border-2 border-black/10 bg-white">
           <Image
-            src="/dummy-profile.svg"
+            src={photo ? URL.createObjectURL(photo) : "/dummy-profile.svg"}
             alt="Dummy profile"
             width={112}
             height={112}
             className="h-28 w-28"
             priority
           />
-        </div>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            onChange={(event) => setPhoto(event.target.files?.[0] || null)}
+          />
+        </label>
 
         <div className="register-inner w-full rounded-[1.25rem] p-4 sm:p-5">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -117,6 +151,13 @@ export function RegisterForm() {
               value={values.phoneNumber}
               onChange={(value) => updateField("phoneNumber", value)}
               error={errors.phoneNumber}
+            />
+            <FormField
+              label="Password"
+              type="password"
+              value={values.password}
+              onChange={(value) => updateField("password", value)}
+              error={errors.password}
             />
             <FormField
               label="City"
@@ -251,14 +292,13 @@ function validate(values: RegisterFormValues) {
   }
 
   if (!values.phoneNumber.trim()) errors.phoneNumber = "Required";
+  if (!values.password.trim()) {
+    errors.password = "Required";
+  } else if (values.password.length < 8) {
+    errors.password = "Use at least 8 characters";
+  }
   if (!values.city.trim()) errors.city = "Required";
   if (!values.country.trim()) errors.country = "Required";
 
   return errors;
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }

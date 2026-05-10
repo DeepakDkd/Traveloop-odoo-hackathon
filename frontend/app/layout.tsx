@@ -4,6 +4,7 @@ import { Inter, Plus_Jakarta_Sans, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AppProvider } from "@/lib/context";
+import { Toaster } from "sonner";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -36,6 +37,7 @@ export default function RootLayout({
       
         <AppProvider>
           {children}
+          <Toaster richColors position="top-right" />
         </AppProvider>
       </body>
     </html>

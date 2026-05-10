@@ -1,5 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Calendar,
   MapPin,
@@ -10,72 +12,64 @@ import {
 } from "lucide-react";
 import { DashboardPage } from "@/components/layout/dashboard-page";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { apiImageUrl, apiRequest, setSelectedTripId } from "@/lib/api";
+import { City, Trip } from "@/lib/types";
 
-const regionalDestinations = [
-  {
-    id: 1,
-    city: "Paris",
-    country: "France",
-    image:
-      "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&h=600&fit=crop",
-  },
-  {
-    id: 2,
-    city: "Tokyo",
-    country: "Japan",
-    image:
-      "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=600&fit=crop",
-  },
-  {
-    id: 3,
-    city: "New York",
-    country: "USA",
-    image:
-      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop",
-  },
-  {
-    id: 4,
-    city: "Bali",
-    country: "Indonesia",
-    image:
-      "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800&h=600&fit=crop",
-  },
-];
-
-const previousTrips = [
-  {
-    id: 1,
-    name: "European Adventure",
-    destination: "Paris, Rome, Barcelona",
-    dates: "Mar 15 - Mar 28, 2026",
-    image:
-      "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=900&h=520&fit=crop",
-  },
-  {
-    id: 2,
-    name: "Asian Exploration",
-    destination: "Tokyo, Seoul, Bangkok",
-    dates: "Jan 10 - Jan 24, 2026",
-    image:
-      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=900&h=520&fit=crop",
-  },
-  {
-    id: 3,
-    name: "Beach Getaway",
-    destination: "Maldives",
-    dates: "Dec 1 - Dec 7, 2025",
-    image:
-      "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=900&h=520&fit=crop",
-  },
-];
+type ApiList<T> = {
+  success: boolean;
+  data: T;
+};
 
 export default function HomePage() {
+  const [cities, setCities] = useState<City[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [sort, setSort] = useState("createdAt");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDashboard() {
+      try {
+        setLoading(true);
+        setError("");
+        const [cityPayload, tripPayload] = await Promise.all([
+          apiRequest<ApiList<City[]>>("/api/cities/popular"),
+          apiRequest<ApiList<Trip[]>>(
+            `/api/trips/user/all?sort=${sort}&order=desc${status ? `&status=${status}` : ""}${query ? `&q=${encodeURIComponent(query)}` : ""}`,
+          ).catch(() => ({ success: false, data: [] as Trip[] })),
+        ]);
+
+        if (isMounted) {
+          setCities(cityPayload.data || []);
+          setTrips(Array.isArray(tripPayload.data) ? tripPayload.data : []);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Unable to load dashboard");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [query, sort, status]);
+
+  const previousTrips = useMemo(() => trips.slice(0, 6), [trips]);
+
   return (
     <DashboardShell>
       <DashboardPage>
         <div className="space-y-8">
           <section className="relative h-64 overflow-hidden rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.1)] sm:h-80">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1400&h=600&fit=crop"
               alt="Travel destination"
@@ -92,47 +86,62 @@ export default function HomePage() {
             </div>
           </section>
 
+          <SearchBar
+            query={query}
+            status={status}
+            sort={sort}
+            onQueryChange={setQuery}
+            onStatusChange={setStatus}
+            onSortChange={setSort}
+          />
+
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
           <section className="space-y-4">
-            <SearchBar />
+            <SectionHeader title="Top Regional Selections" actionHref="/search" />
+
+            {loading ? (
+              <GridSkeleton count={4} />
+            ) : cities.length ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {cities.slice(0, 8).map((destination) => (
+                  <ImageCard
+                    key={destination.id}
+                    title={destination.name}
+                    subtitle={destination.country}
+                    image={
+                      apiImageUrl(destination.imageUrl) ||
+                      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&h=600&fit=crop"
+                    }
+                    icon={<MapPin size={12} />}
+                    aspectClass="aspect-[4/3]"
+                    href={`/search?cityId=${destination.id}&q=${encodeURIComponent(destination.name)}`}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="No popular cities are available yet." />
+            )}
           </section>
 
           <section className="space-y-4">
-            <SectionHeader
-              title="Top Regional Selections"
-              actionLabel="View all"
-            />
+            <SectionHeader title="Previous Trips" actionHref="/my-trips" />
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {regionalDestinations.map((destination) => (
-                <ImageCard
-                  key={destination.id}
-                  title={destination.city}
-                  subtitle={destination.country}
-                  image={destination.image}
-                  icon={<MapPin size={12} />}
-                  aspectClass="aspect-[4/3]"
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionHeader
-              title="Previous Trips"
-              actionLabel="View all trips"
-            />
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {previousTrips.map((trip) => (
-                <TripCard
-                  key={trip.id}
-                  title={trip.name}
-                  destination={trip.destination}
-                  dates={trip.dates}
-                  image={trip.image}
-                />
-              ))}
-            </div>
+            {loading ? (
+              <GridSkeleton count={3} />
+            ) : previousTrips.length ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {previousTrips.map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="No trips yet. Start with the Plan a Trip button." />
+            )}
           </section>
         </div>
 
@@ -150,63 +159,77 @@ export default function HomePage() {
   );
 }
 
-function SearchBar() {
+function SearchBar({
+  query,
+  status,
+  sort,
+  onQueryChange,
+  onStatusChange,
+  onSortChange,
+}: {
+  query: string;
+  status: string;
+  sort: string;
+  onQueryChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onSortChange: (value: string) => void;
+}) {
   return (
-    <div className="flex w-full flex-col gap-3 sm:flex-row">
-      <div className="relative flex-1">
+    <section className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+      <div className="relative">
         <Search
           size={18}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b7280]"
         />
         <input
           type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search destinations, trips, or activities..."
           className="h-11 w-full rounded-xl border border-black/10 bg-white pl-10 pr-3 text-sm text-[#1a1a2e] outline-none transition-all duration-200 placeholder:text-[#6b7280] focus:border-[#0d6e6e] focus:ring-2 focus:ring-[#0d6e6e]/15"
         />
       </div>
 
-      <div className="flex gap-2 sm:w-auto">
-        <ActionButton icon={<SlidersHorizontal size={18} />} label="Filter" />
-        <ActionButton icon={<ArrowUpDown size={18} />} label="Sort" />
-      </div>
-    </div>
+      <label className="flex h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm text-[#1a1a2e]">
+        <SlidersHorizontal size={18} className="text-[#6b7280]" />
+        <select
+          value={status}
+          onChange={(event) => onStatusChange(event.target.value)}
+          className="bg-transparent outline-none"
+        >
+          <option value="">All trips</option>
+          <option value="UPCOMING">Upcoming</option>
+          <option value="ONGOING">Ongoing</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </label>
+
+      <label className="flex h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-3 text-sm text-[#1a1a2e]">
+        <ArrowUpDown size={18} className="text-[#6b7280]" />
+        <select
+          value={sort}
+          onChange={(event) => onSortChange(event.target.value)}
+          className="bg-transparent outline-none"
+        >
+          <option value="createdAt">Recently created</option>
+          <option value="startDate">Start date</option>
+          <option value="name">Name</option>
+        </select>
+      </label>
+    </section>
   );
 }
 
-function ActionButton({
-  icon,
-  label,
-}: {
-  icon: ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      className="flex h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-medium text-[#1a1a2e] transition-colors hover:bg-[#e5e7eb]"
-    >
-      <span className="text-[#6b7280]">{icon}</span>
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function SectionHeader({
-  title,
-  actionLabel,
-}: {
-  title: string;
-  actionLabel: string;
-}) {
+function SectionHeader({ title, actionHref }: { title: string; actionHref: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <h2 className="text-[20px] font-semibold text-[#1a1a2e]">{title}</h2>
-      <button
-        type="button"
+      <Link
+        href={actionHref}
         className="text-sm font-medium text-[#0d6e6e] transition-colors hover:underline"
       >
-        {actionLabel}
-      </button>
+        View all
+      </Link>
     </div>
   );
 }
@@ -217,17 +240,21 @@ function ImageCard({
   image,
   icon,
   aspectClass,
+  href,
 }: {
   title: string;
   subtitle: string;
   image: string;
   icon: ReactNode;
   aspectClass: string;
+  href: string;
 }) {
   return (
-    <article className="cursor-pointer overflow-hidden rounded-2xl border border-black/8 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
+    <Link
+      href={href}
+      className="block overflow-hidden rounded-2xl border border-black/8 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+    >
       <div className={`relative ${aspectClass}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={image} alt={title} className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-4">
@@ -238,38 +265,62 @@ function ImageCard({
           </p>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
-function TripCard({
-  title,
-  destination,
-  dates,
-  image,
-}: {
-  title: string;
-  destination: string;
-  dates: string;
-  image: string;
-}) {
+function TripCard({ trip }: { trip: Trip }) {
+  const cities = trip.stops?.map((stop) => stop.city?.name).filter(Boolean).join(", ");
+  const image = apiImageUrl(trip.coverImage) || "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=900&h=520&fit=crop";
+
   return (
-    <article className="overflow-hidden rounded-2xl border border-black/8 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]">
+    <Link
+      href={`/trip-itinerary?tripId=${trip.id}`}
+      onClick={() => setSelectedTripId(trip.id)}
+      className="block overflow-hidden rounded-2xl border border-black/8 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
+    >
       <div className="aspect-[16/9]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={title} className="h-full w-full object-cover" />
+        <img src={image} alt={trip.name} className="h-full w-full object-cover" />
       </div>
       <div className="space-y-2 p-4">
-        <p className="text-base font-semibold text-[#1a1a2e]">{title}</p>
+        <p className="text-base font-semibold text-[#1a1a2e]">{trip.name}</p>
         <p className="flex items-center gap-1 text-sm text-[#6b7280]">
           <MapPin size={14} />
-          {destination}
+          {cities || trip.description || "No stops added yet"}
         </p>
         <p className="flex items-center gap-1 text-xs text-[#6b7280]">
           <Calendar size={12} />
-          {dates}
+          {formatDateRange(trip.startDate, trip.endDate)}
         </p>
       </div>
-    </article>
+    </Link>
   );
+}
+
+function GridSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="h-48 animate-pulse rounded-2xl bg-black/10" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-black/15 bg-white px-4 py-8 text-center text-sm text-[#6b7280]">
+      {text}
+    </div>
+  );
+}
+
+function formatDateRange(start: string, end: string) {
+  const formatter = new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return `${formatter.format(new Date(start))} - ${formatter.format(new Date(end))}`;
 }
