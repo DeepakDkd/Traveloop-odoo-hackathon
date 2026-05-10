@@ -73,10 +73,95 @@ export const publishTrip = async (req, res) => {
 
 export const getCommunityFeed = async (req, res) => {
   try {
+    const { q, cityId, country, category, sort = "createdAt", order = "desc", take = 20 } = req.query;
+    const sortableFields = ["createdAt", "likes", "views"];
+    const sortField = sortableFields.includes(sort) ? sort : "createdAt";
+    const tripAndFilters = [];
+
+    if (cityId) {
+      tripAndFilters.push({
+        stops: {
+          some: {
+            cityId,
+          },
+        },
+      });
+    }
+
+    if (country) {
+      tripAndFilters.push({
+        stops: {
+          some: {
+            city: {
+              country: {
+                contains: country,
+                mode: "insensitive",
+              },
+            },
+          },
+        },
+      });
+    }
+
+    if (category) {
+      tripAndFilters.push({
+        stops: {
+          some: {
+            activities: {
+              some: {
+                activity: {
+                  category,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
     const posts = await prisma.communityPost.findMany({
       where: {
         trip: {
           isPublic: true,
+          ...(tripAndFilters.length && { AND: tripAndFilters }),
+          ...(q && {
+            OR: [
+              {
+                name: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+              {
+                description: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+              {
+                stops: {
+                  some: {
+                    city: {
+                      OR: [
+                        {
+                          name: {
+                            contains: q,
+                            mode: "insensitive",
+                          },
+                        },
+                        {
+                          country: {
+                            contains: q,
+                            mode: "insensitive",
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          }),
         },
       },
       include: {
@@ -103,8 +188,9 @@ export const getCommunityFeed = async (req, res) => {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        [sortField]: order === "asc" ? "asc" : "desc",
       },
+      take: Number(take),
     });
 
     return sendSuccess(res, 200, posts);

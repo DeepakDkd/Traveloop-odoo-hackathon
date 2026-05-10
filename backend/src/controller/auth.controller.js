@@ -8,18 +8,20 @@ export const registerUser = async (req, res) => {
       firstName,
       lastName,
       email,
-      phoneNumber,
+      phone,
       city,
       country,
       password,
-      additionalInfo,
+      addInfo,
     } = req.body;
+
+  
 
     if (
       !firstName ||
       !lastName ||
       !email ||
-      !phoneNumber ||
+      !phone ||
       !city ||
       !country ||
       !password
@@ -45,23 +47,17 @@ export const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    let profilePhoto = "";
-
-    if (req.file) {
-      profilePhoto = req.file.path;
-    }
-
     const newUser = await prisma.user.create({
       data: {
         firstName,
         lastName,
         email,
-        phone:phoneNumber,
+        phone,
         city,
         country,
-       addInfo:additionalInfo,
+        addInfo,
+        photo: req.file ? `/${req.file.path.replace(/\\/g, "/")}` : null,
         passwordHash: hashedPassword,
-        
       },
     });
 
@@ -76,12 +72,18 @@ export const registerUser = async (req, res) => {
       }
     );
 
-    const { password: _, ...userResponse } = newUser;
+    const { passwordHash, ...userResponse } = newUser;
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      token,
       user: userResponse,
     });
   } catch (error) {
@@ -96,9 +98,10 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, username, password } = req.body;
+    const loginEmail = email || username;
 
-    if (!email || !password) {
+    if (!loginEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
@@ -107,7 +110,7 @@ export const loginUser = async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: {
-        email,
+        email: loginEmail,
       },
     });
 
@@ -141,20 +144,20 @@ export const loginUser = async (req, res) => {
       }
     );
 
-    const { password: _, ...userResponse } = user;
+    const { passwordHash, ...userResponse } = user;
 
-  res.cookie("token", token, {
-  httpOnly: true,
-  secure: false,
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-});
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
-res.status(200).json({
-  success: true,
-  message: "Login successful",
-  user: userResponse,
-});
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: userResponse,
+    });
   } catch (error) {
     console.log("LOGIN ERROR:", error);
 

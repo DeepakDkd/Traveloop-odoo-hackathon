@@ -1,10 +1,16 @@
 import express from "express";
 
 import {
+  clonePreplannedTrip,
   createTrip,
+  deleteTrip,
+  getPreplannedTrips,
   getTripSuggestions,
   getUserTrips,
   getTripById,
+  shareTrip,
+  updateTrip,
+  updateTripStatus,
 } from "../controller/trip.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -24,9 +30,21 @@ router.post("/", createTrip);
 
 router.get("/suggestions", getTripSuggestions);
 
+router.get("/preplanned", getPreplannedTrips);
+
+router.post("/preplanned/:tripId/clone", clonePreplannedTrip);
+
 router.get("/user/all", getUserTrips);
 
 router.get("/:id", getTripById);
+
+router.patch("/:tripId", updateTrip);
+
+router.patch("/:tripId/status", updateTripStatus);
+
+router.patch("/:tripId/share", shareTrip);
+
+router.delete("/:tripId", deleteTrip);
 
 router.patch("/:tripId/cover", uploadImage.single("coverImage"), uploadTripCover);
 
