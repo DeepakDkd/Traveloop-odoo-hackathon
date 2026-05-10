@@ -37,12 +37,11 @@ export const sidebarSections: AppNavigationSection[] = [
     items: [
       { label: "Dashboard", href: "/", icon: Home },
       { label: "Create Trip", href: "/create-trip", icon: Plane },
-      { label: "My Trips", href: "/my-trips", icon: Map, disabled: true },
+      { label: "My Trips", href: "/my-trips", icon: Map },
       {
         label: "Trip Itinerary",
         href: "/trip-itinerary",
         icon: Calendar,
-        disabled: true,
       },
       { label: "Budget", href: "/budget", icon: Wallet, disabled: true },
     ],
@@ -50,7 +49,7 @@ export const sidebarSections: AppNavigationSection[] = [
   {
     title: "Explore",
     items: [
-      { label: "Search", href: "/search", icon: Search, disabled: true },
+      { label: "Activity Search", href: "/search", icon: Search },
       { label: "Community", href: "/community", icon: Users, disabled: true },
     ],
   },

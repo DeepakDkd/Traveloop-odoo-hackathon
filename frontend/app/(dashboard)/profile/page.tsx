@@ -84,7 +84,7 @@ const ProfileScreen = () => {
                                 User Details with appropriate option to edit those information.....
                             </p>
                             <Button
-                                variant="outline"
+                                variant="primary"
                                 className="mt-6 border border-gray-400 text-gray-700 hover:bg-gray-100"
                             >
                                 <Edit2 size={18} className="mr-2" />
@@ -106,7 +106,7 @@ const ProfileScreen = () => {
                                         <p className="text-sm">{trip.destination}</p>
                                     </div>
                                     <Button
-                                        variant="outline"
+                                        variant="primary"
                                         className="border border-gray-400 text-gray-700 hover:bg-gray-100"
                                     >
                                         View
@@ -129,7 +129,7 @@ const ProfileScreen = () => {
                                         <p className="text-sm">{trip.destination}</p>
                                     </div>
                                     <Button
-                                        variant="outline"
+                                        variant="ghost"
                                         className="border border-gray-400 text-gray-700 hover:bg-gray-100"
                                     >
                                         View
