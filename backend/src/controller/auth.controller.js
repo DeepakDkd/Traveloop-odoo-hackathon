@@ -2,6 +2,11 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 
+const sanitizeUser = (user) => {
+  const { passwordHash, ...safeUser } = user;
+  return safeUser;
+};
+
 export const registerUser = async (req, res) => {
   try {
     const {
@@ -14,11 +19,12 @@ export const registerUser = async (req, res) => {
       password,
       additionalInfo,
     } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
     if (
       !firstName ||
       !lastName ||
-      !email ||
+      !normalizedEmail ||
       !phoneNumber ||
       !city ||
       !country ||
@@ -32,7 +38,7 @@ export const registerUser = async (req, res) => {
 
     const existingUser = await prisma.user.findUnique({
       where: {
-        email,
+        email: normalizedEmail,
       },
     });
 
@@ -55,13 +61,13 @@ export const registerUser = async (req, res) => {
       data: {
         firstName,
         lastName,
-        email,
-        phone:phoneNumber,
+        email: normalizedEmail,
+        phone: phoneNumber,
         city,
         country,
-       addInfo:additionalInfo,
+        addInfo: additionalInfo,
+        photo: profilePhoto || undefined,
         passwordHash: hashedPassword,
-        
       },
     });
 
@@ -76,13 +82,11 @@ export const registerUser = async (req, res) => {
       }
     );
 
-    const { password: _, ...userResponse } = newUser;
-
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       token,
-      user: userResponse,
+      user: sanitizeUser(newUser),
     });
   } catch (error) {
     console.log("REGISTER ERROR:", error);
@@ -97,17 +101,21 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email?.trim().toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: {
-        email,
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
       },
     });
 
@@ -141,20 +149,18 @@ export const loginUser = async (req, res) => {
       }
     );
 
-    const { password: _, ...userResponse } = user;
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
-  res.cookie("token", token, {
-  httpOnly: true,
-  secure: false,
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-});
-
-res.status(200).json({
-  success: true,
-  message: "Login successful",
-  user: userResponse,
-});
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: sanitizeUser(user),
+    });
   } catch (error) {
     console.log("LOGIN ERROR:", error);
 
