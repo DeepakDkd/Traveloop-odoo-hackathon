@@ -1,18 +1,87 @@
 import Link from "next/link";
-import {
-  Bell,
-  Calendar,
-  Home,
-  Map,
-  MapPin,
-  Plane,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  ArrowUpDown,
-  Users,
-  User,
-} from "lucide-react";
+
+type IconProps = {
+  size?: number;
+  className?: string;
+};
+
+const iconStyle = (size = 20): React.CSSProperties => ({
+  fontSize: size,
+  lineHeight: 1,
+  display: "inline-block",
+});
+
+const Bell = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    🔔
+  </span>
+);
+
+const Calendar = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    📅
+  </span>
+);
+
+const Home = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    🏠
+  </span>
+);
+
+const Map = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    🗺️
+  </span>
+);
+
+const MapPin = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    📍
+  </span>
+);
+
+const Plane = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    ✈️
+  </span>
+);
+
+const Plus = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    ➕
+  </span>
+);
+
+const Search = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    🔍
+  </span>
+);
+
+const SlidersHorizontal = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    ⚙️
+  </span>
+);
+
+const ArrowUpDown = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    ↕️
+  </span>
+);
+
+const Users = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    👥
+  </span>
+);
+
+const User = ({ size, className }: IconProps) => (
+  <span style={iconStyle(size)} className={className}>
+    👤
+  </span>
+);
 
 const regionalDestinations = [
   {
